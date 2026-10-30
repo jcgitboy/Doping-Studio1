@@ -1,0 +1,1048 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Doping Studio</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: tab switch, controls column left, one shared-depth figure (wafer | profile) right, readouts and class experiments below. Heat = diffusion, beam = implantation. */
+:root{--bg:#000000;--surface:#0F0F0F;--ink:#FFFFFF;--muted:#B5B5B5;--line:#2C2C2C;--grid:#1E1E1E;--heat:#EE7F2D;--teal:#2EC4B6;--beam:#5CC8FF;--si:#245C99;--field:#080808;--cyan:#EE7F2D;--violet:#EE7F2D;color-scheme:dark;
+ --display:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;--body:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;--mono:'IBM Plex Mono',ui-monospace,Menlo,monospace}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;padding-block:28px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(30px,5vw,46px);line-height:1.05;margin:0;letter-spacing:-.01em;text-wrap:balance}
+h2{font-family:var(--display);font-weight:600;font-size:20px;margin:0}
+.lede{margin:8px 0 0;color:var(--muted);max-width:62ch}
+.tabs{display:flex;gap:8px;flex-wrap:wrap}
+.mtab{font:600 15px var(--body);color:var(--muted);background:var(--surface);border:1px solid var(--line);border-bottom:3px solid var(--line);padding:10px 18px;border-radius:6px;cursor:pointer}
+.mtab[aria-selected="true"]{color:var(--ink)}
+.mtab[data-mode="diff"][aria-selected="true"]{border-bottom-color:var(--heat)}
+.mtab[data-mode="imp"][aria-selected="true"]{border-bottom-color:var(--beam)}
+:focus-visible{outline:2px solid var(--beam);outline-offset:2px}
+.main{display:grid;grid-template-columns:minmax(0,310px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){.main{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:18px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.group{display:flex;flex-direction:column;gap:12px}
+.group+.group{border-top:1px solid var(--line);padding-top:16px}
+.gtitle{font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.row{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:baseline}
+.row label{font-weight:500;font-size:14px}
+.row output{font:500 13px var(--mono);color:var(--ink)}
+.row input[type=range]{grid-column:1/-1;width:100%;margin:4px 0 0;accent-color:var(--accent,var(--beam))}
+#pDiff{--accent:var(--heat)}#pImp{--accent:var(--beam)}
+.check{display:flex;gap:8px;align-items:flex-start;font-size:14px}
+.check input{margin-top:4px;accent-color:var(--accent,var(--beam))}
+.seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{flex:1;font:500 13px var(--mono);padding:8px 6px;background:var(--field);color:var(--muted);border:0;border-right:1px solid var(--line);cursor:pointer}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.hint{font-size:12.5px;color:var(--muted);margin:0}
+.btn{font:600 14px var(--body);padding:9px 14px;border-radius:6px;border:1px solid var(--ink);background:var(--ink);color:var(--surface);cursor:pointer}
+.figure{display:flex;flex-direction:column;gap:12px;min-width:0}
+.canvaswrap{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px;min-width:0}
+canvas{display:block;width:100%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--muted);padding:2px 4px}
+.legend i{display:inline-block;width:22px;height:0;border-top:3px solid;vertical-align:middle;margin-right:6px}
+.legend i.dash{border-top-style:dashed}
+.phase{font:500 13px var(--mono);color:var(--ink);padding:2px 4px;min-height:1.5em}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px;min-width:0}
+.stat .k{font:500 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.stat .v{font:500 20px var(--mono);margin-top:4px;overflow-wrap:anywhere}
+.stat .s{font-size:12.5px;color:var(--muted)}
+.notice{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent,var(--beam));border-radius:6px;padding:12px 16px;margin:0;max-width:78ch}
+.exp{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-top:10px}
+.exp button{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px;cursor:pointer;color:var(--ink);font-family:var(--body);display:flex;flex-direction:column;gap:4px}
+.exp button:hover{border-color:var(--ink)}
+.exp b{font-size:14px}.exp span{font-size:13px;color:var(--muted)}
+.foot{font-size:12.5px;color:var(--muted);max-width:90ch;margin:0}
+.sr{position:absolute;left:-9999px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+.site{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:22px}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 22px;border-bottom:1px solid var(--line);padding-bottom:12px}
+.brand{font-family:var(--display);font-weight:700;font-size:24px;letter-spacing:-.01em;margin-right:auto}
+.nav{display:flex;flex-wrap:wrap;gap:6px}
+.nav a{font:600 14px var(--body);color:var(--muted);text-decoration:none;padding:8px 14px;border-radius:6px;border:1px solid transparent}
+.nav a:hover{color:var(--ink);border-color:var(--line)}
+.nav a[aria-current="page"]{color:var(--surface);background:var(--ink)}
+.view[hidden]{display:none!important}
+.calcs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:16px;align-items:start}
+.calc h3{font-family:var(--display);font-size:18px;margin:0}
+.calc .sub{font-size:13px;color:var(--muted);margin:0}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.fld{display:flex;flex-direction:column;gap:3px;min-width:0}
+.fld label{font-size:12.5px;color:var(--muted)}
+.fld input,.fld select{font:500 14px var(--mono);color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:6px;padding:8px 9px;width:100%;min-width:0}
+.out{margin:0;display:grid;grid-template-columns:1fr auto;gap:6px 12px;border-top:1px solid var(--line);padding-top:12px}
+.out dt{font-size:13.5px;color:var(--muted)}
+.out dd{margin:0;font:500 14px var(--mono);text-align:right;overflow-wrap:anywhere}
+.out dd.key{color:var(--ink);font-size:16px}
+.formula{font:400 12.5px var(--mono);color:var(--muted);margin:0;overflow-x:auto}
+.err{color:var(--heat);font-size:13px;margin:0}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+.btn2{font:600 14px var(--body);padding:9px 14px;border-radius:6px;border:1px solid var(--line);background:var(--field);color:var(--ink);cursor:pointer}
+.theory{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:16px}
+.theory .panel p,.theory .panel li{margin:0;font-size:14.5px}
+.theory ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
+.eq{font:500 14px var(--mono);background:var(--field);border:1px solid var(--line);border-radius:6px;padding:8px 10px;overflow-x:auto;white-space:pre}
+table.t{border-collapse:collapse;width:100%;font-size:14px}
+table.t th,table.t td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left}
+table.t th{font:500 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.scroll{overflow-x:auto}
+canvas.mini{width:100%;height:220px}
+
+.vgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:12px}
+.vcard{display:flex;flex-direction:column;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px;color:var(--ink);text-decoration:none;min-width:0}
+.vcard:hover{border-color:var(--ink)}
+.vcard b{font-size:15px;line-height:1.35}
+.vcard .src{font:400 12px var(--mono);color:var(--muted)}
+.vcard .why{font-size:13.5px;color:var(--muted)}
+.vcard .go{font:600 13px var(--body);color:var(--beam);margin-top:auto}
+.vcard .tag{align-self:flex-start;font:500 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:2px 7px}
+
+body{background:radial-gradient(1200px 500px at 50% -120px,#101a38 0%,var(--bg) 70%) no-repeat,var(--bg)}
+.bar{flex-direction:column;align-items:center;text-align:center;border-bottom:0;gap:6px;padding-bottom:0}
+.brand{margin:0;font-size:clamp(28px,4.4vw,40px);color:var(--ink)}
+.tagline{margin:0;font-size:14px;color:var(--muted)}
+.nav{justify-content:center;margin-top:10px}
+.nav a[aria-current="page"]{background:var(--violet);color:#fff}
+.panel{background:var(--surface);border-color:var(--line);border-radius:12px}
+.canvaswrap,.stat,.vcard{border-radius:12px;background:var(--surface)}
+.main{grid-template-columns:minmax(0,1fr) minmax(0,400px)}
+.main>aside{order:2}
+@media (max-width:860px){.main{grid-template-columns:minmax(0,1fr)}.main>aside{order:0}}
+.gtitle{color:var(--cyan)}
+.panel h3,.card h3{font-family:var(--display)}
+.callout{border-left:3px solid var(--cyan);background:#0c1a33;border-radius:0 8px 8px 0;padding:14px 18px;max-width:none}
+.callout b{display:block;color:var(--cyan);font-size:15px;margin-bottom:4px}
+.callout p{margin:0;color:var(--ink);font-size:14.5px;max-width:80ch}
+.bigread{background:var(--field);border:1px solid var(--line);border-radius:10px;padding:16px;text-align:center}
+.bigread .k{font-size:13px;color:var(--muted)}
+.bigread .v{font:600 34px var(--mono);color:var(--cyan);margin:6px 0;overflow-wrap:anywhere}
+.bigread .s{font:400 12px var(--mono);color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:8px}
+.card h3{margin:0;font-size:16px}
+.card p{margin:0;font-size:14px;color:var(--muted)}
+.card.analogy{border-left:3px solid var(--violet);background:#12183a}
+.card.analogy h3{color:var(--beam)}
+.card.analogy p{color:#cbd3ff}
+.lede{max-width:70ch}
+header h2{color:var(--ink)}
+.notice{background:var(--surface);border-radius:8px}
+.row input[type=range]{accent-color:var(--violet)}
+#pDiff input[type=range]{accent-color:var(--heat)}
+#pImp input[type=range]{accent-color:var(--violet)}
+
+body{background:#000}
+.nav a[aria-current="page"]{background:var(--heat);color:#000}
+.nav a:hover{color:var(--ink);border-color:var(--heat)}
+.callout{background:#190d04;border-left-color:var(--heat)}
+.callout b{color:var(--heat)}
+.bigread .v{color:var(--heat)}
+.card.analogy{background:#07121b;border-left-color:var(--beam)}
+.card.analogy h3{color:var(--beam)}
+.card.analogy p{color:#cfe8f7}
+.tab,.mtab{background:#0F0F0F}
+.gtitle{color:var(--heat)}
+#pImp input[type=range]{accent-color:var(--beam)}
+.seg button[aria-pressed="true"]{background:var(--heat);color:#000;font-weight:600}
+.btn{background:var(--heat);border-color:var(--heat);color:#000}
+.vcard .go{color:var(--heat)}
+.notice{border-left-color:var(--heat)}
+.how{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,360px);gap:16px;align-items:start}
+@media (max-width:900px){.how{grid-template-columns:minmax(0,1fr)}}
+.xscroll{overflow-x:auto}
+.pstep{display:flex;gap:10px;align-items:center;text-align:left;width:100%;background:var(--field);border:1px solid var(--line);border-radius:8px;padding:9px 10px;color:var(--muted);font:500 13.5px var(--body);cursor:pointer}
+.pstep .pn{flex:none;width:24px;height:24px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;font:600 12px var(--mono)}
+.pstep[aria-current="true"]{color:var(--ink);border-color:var(--heat)}
+.pstep[aria-current="true"] .pn{background:var(--heat);border-color:var(--heat);color:#000}
+.psteps{display:flex;flex-direction:column;gap:6px}
+.pinfo h3{margin:0 0 6px;font-size:16px;color:var(--heat)}
+.pinfo p{margin:0;font-size:14px;line-height:1.55}
+.pbar{height:3px;background:var(--line);border-radius:2px;overflow:hidden}
+.pbar i{display:block;height:100%;background:var(--heat);width:0}
+.egrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:10px}
+.eq-item{display:flex;flex-direction:column;gap:3px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:11px 13px;color:var(--ink);cursor:pointer;font-family:var(--body)}
+.eq-item b{font-size:14px}.eq-item span{font-size:12.5px;color:var(--muted)}
+.eq-item.on,.eq-item:hover{border-color:var(--heat)}
+.eq-item.on b{color:var(--heat)}
+.ctl{display:flex;gap:8px}
+.ctl button{flex:1}
+</style>
+<div class="site">
+ <div class="bar">
+  <div class="brand">Doping Studio</div>
+  <p class="tagline">Adjust the settings to see how dopants move through silicon</p>
+  <nav class="nav" aria-label="Sections">
+   <a href="#how" data-v="how">How it works</a>
+   <a href="#simulate" data-v="simulate">Diffusion simulation</a>
+   <a href="#profiles" data-v="profiles">Profile lab</a>
+   <a href="#calculators" data-v="calculators">Calculators</a>
+   <a href="#videos" data-v="videos">Videos</a>
+   <a href="#theory" data-v="theory">Theory</a>
+  </nav>
+ </div>
+
+ <section class="view" id="v-how">
+  <div class="wrap">
+   <div class="callout"><b>How do these processes actually work?</b><p>Pick a process, then step through it or press Play all. The orange outline shows which machine part is working in each step. Hover over a tool card below to find it in the picture.</p></div>
+   <div class="seg" id="p-mode" role="group" aria-label="Process" style="max-width:520px"><button data-v="diff" aria-pressed="true">Thermal diffusion (furnace)</button><button data-v="imp" aria-pressed="false">Ion implantation (implanter)</button></div>
+   <div class="how">
+    <div style="display:flex;flex-direction:column;gap:16px;min-width:0"><div class="canvaswrap xscroll"><canvas id="p-cv" role="img" aria-label="Animated diagram of the machine used for the selected doping process"></canvas></div>
+     <div class="card pinfo" id="p-info"></div></div>
+    <aside class="panel" aria-label="Process steps">
+     <div class="gtitle">Steps</div>
+     <div class="psteps" id="p-steps"></div>
+     <div class="ctl"><button class="btn2" id="p-prev" type="button">Back</button><button class="btn" id="p-play" type="button">Play all</button><button class="btn2" id="p-next" type="button">Next</button></div>
+     <div class="pbar"><i id="p-bar"></i></div>
+     <div class="row" id="p-energy" hidden><label for="p-E">Ion energy</label><output id="p-E_o">100 keV</output><input type="range" id="p-E" min="20" max="200" step="5" value="100"></div>
+    </aside>
+   </div>
+   <h3 style="margin:8px 0 0;font-family:var(--display)">Tools and equipment</h3>
+   <div class="egrid" id="p-equip"></div>
+   <p class="hint">Schematic drawings, not to scale. Real tools are much larger and run in cleanrooms.</p>
+  </div>
+ </section>
+
+ <section class="view" id="v-simulate" hidden>
+  <div class="wrap">
+   <div class="callout"><b>What is diffusion?</b><p>Dopant atoms move from a region of high concentration into the silicon when it is heated to about 900 to 1100 °C. Try the sliders below: a higher temperature or a longer time pushes the dopant deeper and lowers the surface concentration.</p></div>
+   <div class="main">
+    <aside class="panel" aria-label="Simulation settings">
+     <div class="group">
+      <div class="gtitle">Dopant</div>
+      <div class="seg" id="m-species" role="group" aria-label="Dopant"><button data-v="B" aria-pressed="true">Boron</button><button data-v="P" aria-pressed="false">Phosphorus</button><button data-v="As" aria-pressed="false">Arsenic</button></div>
+      <div class="row"><label for="m-T">Drive-in temperature</label><output id="m-T_o"></output><input type="range" id="m-T" min="800" max="1200" step="10"></div>
+      <div class="row"><label for="m-min">Total time</label><output id="m-min_o"></output><input type="range" id="m-min" min="10" max="240" step="10"></div>
+      <div class="fld"><label for="m-n">Number of atoms</label><select id="m-n"><option>500</option><option>1000</option><option selected>2000</option><option>3000</option></select></div>
+     </div>
+     <div class="group">
+      <div class="gtitle">Time</div>
+      <div class="row"><label for="m-u">Timeline</label><output id="m-u_o"></output><input type="range" id="m-u" min="0" max="1000" step="1"></div>
+      <div class="btnrow"><button class="btn" id="m-play" type="button">Play</button><button class="btn2" id="m-reset" type="button">Reset</button></div>
+      <p class="hint">Drag the timeline to scrub through the heating step. The profiles start as a thin layer at the surface.</p>
+     </div>
+    <div class="bigread"><div class="k">Spread of the dopant (σ)</div><div class="v" id="m-big">—</div><div class="s">σ = √(2·D·t),  D = D₀·exp(−Ea/kT)</div></div>
+    </aside>
+    <section class="figure" aria-label="Simulation">
+     <div class="canvaswrap"><canvas id="m-cv" role="img" aria-label="Dopant atoms in a silicon cross-section beside a concentration profile"></canvas></div>
+     <div class="legend"><span><i style="border-color:var(--heat)"></i>Monte Carlo atoms</span><span><i style="border-color:var(--teal)"></i>Fick's 2nd law, finite difference</span><span><i class="dash" style="border-color:var(--ink)"></i>Analytic Gaussian</span></div>
+     <div class="stats" id="m-stats"></div>
+     <p class="notice" id="m-notice" style="--accent:var(--heat)"></p>
+     <div class="card"><h3>How it works</h3><p>Each orange dot takes random steps. Hotter silicon gives bigger steps, because the diffusivity D rises exponentially with temperature. After time t the atoms spread over a width σ = √(2Dt). The teal and dashed curves are the same physics written as Fick's second law and its Gaussian solution.</p></div>
+     <div class="card analogy"><h3>Crowd analogy</h3><p>Think of a crowd leaving a small room. People drift from the packed spot into empty space. Heat is like energy: the more energy, the faster everyone spreads out. The number of people stays the same, so the crowd gets thinner as it widens.</p></div>
+    </section>
+   </div>
+  </div>
+ </section>
+
+ <section class="view" id="v-profiles" hidden>
+<div class="wrap">
+<div class="callout"><b>Diffusion vs. ion implantation</b><p>Switch between the two doping methods. Diffusion gives a profile that peaks at the surface. Ion implantation fires ions into the wafer, so the peak sits below the surface at a depth set by the energy. Turn on the overlay to compare them.</p></div>
+<div class="tabs" role="tablist" aria-label="Process">
+ <button class="mtab" role="tab" data-mode="diff" id="tabDiff" aria-selected="true">Thermal diffusion</button>
+ <button class="mtab" role="tab" data-mode="imp" id="tabImp" aria-selected="false">Ion implantation</button>
+</div>
+<div class="main">
+ <aside class="panel" aria-label="Process settings">
+  <div class="group">
+   <div class="gtitle">Wafer</div>
+   <div class="seg" id="species" role="group" aria-label="Dopant"><button data-v="B" aria-pressed="true">Boron</button><button data-v="P" aria-pressed="false">Phosphorus</button><button data-v="As" aria-pressed="false">Arsenic</button></div>
+   <div class="row"><label for="nb">Background doping</label><output id="nb_o"></output><input type="range" id="nb" min="14" max="18" step="0.1"></div>
+   <p class="hint">The wafer starts with the opposite doping type. A p-n junction forms where the new profile falls to this level.</p>
+  </div>
+  <div class="group" id="pDiff">
+   <div class="gtitle">Diffusion furnace</div>
+   <div class="row"><label for="cs">Surface concentration</label><output id="cs_o"></output><input type="range" id="cs" min="18" max="21" step="0.1"></div>
+   <div class="row"><label for="T1">Predeposit temperature</label><output id="T1_o"></output><input type="range" id="T1" min="800" max="1100" step="10"></div>
+   <div class="row"><label for="t1">Predeposit time</label><output id="t1_o"></output><input type="range" id="t1" min="5" max="120" step="5"></div>
+   <label class="check"><input type="checkbox" id="drive"> Add drive-in step (source removed)</label>
+   <div id="driveRows" class="group" style="border:0;padding:0">
+    <div class="row"><label for="T2">Drive-in temperature</label><output id="T2_o"></output><input type="range" id="T2" min="900" max="1200" step="10"></div>
+    <div class="row"><label for="t2">Drive-in time</label><output id="t2_o"></output><input type="range" id="t2" min="10" max="240" step="10"></div>
+   </div>
+  </div>
+  <div class="group" id="pImp" hidden>
+   <div class="gtitle">Ion implanter</div>
+   <div class="row"><label for="E">Ion energy</label><output id="E_o"></output><input type="range" id="E" min="10" max="300" step="5"></div>
+   <div class="row"><label for="dose">Ion dose</label><output id="dose_o"></output><input type="range" id="dose" min="11" max="16" step="0.1"></div>
+   <label class="check"><input type="checkbox" id="tilt"> Tilt wafer 7° (reduces channeling)</label>
+   <label class="check"><input type="checkbox" id="anneal"> Anneal after implant</label>
+   <div id="annealRows" class="group" style="border:0;padding:0">
+    <div class="row"><label for="Ta">Anneal temperature</label><output id="Ta_o"></output><input type="range" id="Ta" min="800" max="1100" step="10"></div>
+    <div class="row"><label for="ta">Anneal time</label><output id="ta_o"></output><input type="range" id="ta" min="0" max="3.5" step="0.05"></div>
+    <label class="check"><input type="checkbox" id="ted"> Transient-enhanced diffusion (TED)</label>
+   </div>
+  </div>
+  <div class="group">
+   <div class="gtitle">Display</div>
+   <div class="seg" id="axis" role="group" aria-label="Concentration axis"><button data-v="log" aria-pressed="true">Log axis</button><button data-v="lin" aria-pressed="false">Linear axis</button></div>
+   <label class="check"><input type="checkbox" id="overlay"> Overlay the other process</label>
+   <button class="btn" id="replay" type="button">Replay animation</button>
+  </div>
+ <div class="bigread"><div class="k" id="l-bigk">Junction depth</div><div class="v" id="l-big">—</div><div class="s" id="l-bigs">where the profile meets the background</div></div>
+ </aside>
+ <section class="figure" aria-label="Simulation">
+  <div class="canvaswrap"><canvas id="cv" role="img" aria-label="Wafer cross-section with dopant atoms beside a plot of dopant concentration against depth"></canvas></div>
+  <div class="phase" id="phase" aria-live="polite"></div>
+  <div class="legend" id="legend"></div>
+  <div class="stats" id="stats"></div>
+  <p class="notice" id="notice"></p>
+  <div class="card"><h3>How it works</h3><p>Diffusion starts from a constant source and follows an erfc profile. A drive-in step removes the source and turns it into a Gaussian that keeps the same dose. Implantation sets depth with ion energy (Rp) and amount with dose. An anneal repairs damage and spreads the dopant a little.</p></div>
+  <div class="card analogy"><h3>Spray paint vs. bullets</h3><p>Diffusion is like spray paint settling on a surface and soaking inward, with the most paint at the top. Ion implantation is like firing bullets into a wall: heavier, faster bullets stop deeper, and the most end up below the surface.</p></div>
+ </section>
+</div>
+<section>
+ <h2>Try these in class</h2>
+ <div class="exp" id="exp"></div>
+</section>
+<p class="foot">Teaching model. Implant ranges are rounded LSS-style values for silicon, the profile is Gaussian with an optional channeling tail, and diffusion uses constant-diffusivity solutions (erfc for predeposit, Gaussian for drive-in). Real devices also show concentration-dependent diffusion, dopant segregation, and damage effects not modeled here.</p>
+</div>
+
+ </section>
+
+ <section class="view" id="v-calculators" hidden>
+  <div class="wrap">
+   <header><h2>Calculators</h2><p class="lede">Quick hand-calculation tools with the formulas shown. Change any value and the results update. Values use cm and cm⁻³ unless stated. You can type numbers like 1e20.</p></header>
+   <div class="calcs" id="calcs">
+
+    <div class="panel calc" id="c1">
+     <h3>1. Two-step diffusion</h3>
+     <p class="sub">Predeposit from a constant source, then drive-in with the source removed.</p>
+     <div class="fields">
+      <div class="fld"><label for="c1-sp">Dopant</label><select id="c1-sp"><option value="B">Boron</option><option value="P">Phosphorus</option><option value="As">Arsenic</option></select></div>
+      <div class="fld"><label for="c1-Cs">Surface conc. Cs (cm⁻³)</label><input id="c1-Cs" value="1e20" inputmode="decimal"></div>
+      <div class="fld"><label for="c1-Nb">Background Nb (cm⁻³)</label><input id="c1-Nb" value="1e16" inputmode="decimal"></div>
+      <div class="fld"><label for="c1-T1">Predeposit T (°C)</label><input id="c1-T1" value="950" inputmode="decimal"></div>
+      <div class="fld"><label for="c1-t1">Predeposit time (min)</label><input id="c1-t1" value="30" inputmode="decimal"></div>
+      <div class="fld"><label for="c1-T2">Drive-in T (°C)</label><input id="c1-T2" value="1050" inputmode="decimal"></div>
+      <div class="fld"><label for="c1-t2">Drive-in time (min)</label><input id="c1-t2" value="60" inputmode="decimal"></div>
+     </div>
+     <p class="err" id="c1-err" hidden></p>
+     <dl class="out" id="c1-out"></dl>
+     <p class="formula">D = D₀·exp(−Ea/kT)   Q = 2Cs·√(Dt/π)   xj = 2√(Dt)·erfc⁻¹(Nb/Cs)   N₀ = Q/√(πDt)   xj = √(4Dt·ln(N₀/Nb))</p>
+    </div>
+
+    <div class="panel calc" id="c2">
+     <h3>2. Implant dose and beam time</h3>
+     <p class="sub">How long a wafer must sit in the beam to receive a dose, and the reverse.</p>
+     <div class="fields">
+      <div class="fld"><label for="c2-uA">Beam current (µA)</label><input id="c2-uA" value="500" inputmode="decimal"></div>
+      <div class="fld"><label for="c2-eff">Beam on wafer (%)</label><input id="c2-eff" value="100" inputmode="decimal"></div>
+      <div class="fld"><label for="c2-n">Charge state</label><select id="c2-n"><option value="1">1+</option><option value="2">2+</option><option value="3">3+</option></select></div>
+      <div class="fld"><label for="c2-d">Wafer diameter</label><select id="c2-d"><option value="100">100 mm</option><option value="150">150 mm</option><option value="200" selected>200 mm</option><option value="300">300 mm</option></select></div>
+      <div class="fld"><label for="c2-dose">Target dose (cm⁻²)</label><input id="c2-dose" value="1e15" inputmode="decimal"></div>
+      <div class="fld"><label for="c2-t">Or exposure time (s)</label><input id="c2-t" value="60" inputmode="decimal"></div>
+     </div>
+     <p class="err" id="c2-err" hidden></p>
+     <dl class="out" id="c2-out"></dl>
+     <p class="formula">Dose = I·t / (q·n·A)      t = Dose·q·n·A / I</p>
+    </div>
+
+    <div class="panel calc" id="c3">
+     <h3>3. Implant profile</h3>
+     <p class="sub">Projected range, straggle and peak concentration for an as-implanted profile.</p>
+     <div class="fields">
+      <div class="fld"><label for="c3-sp">Ion</label><select id="c3-sp"><option value="B">Boron</option><option value="P">Phosphorus</option><option value="As">Arsenic</option></select></div>
+      <div class="fld"><label for="c3-E">Energy (keV, 10 to 300)</label><input id="c3-E" value="100" inputmode="decimal"></div>
+      <div class="fld"><label for="c3-dose">Dose (cm⁻²)</label><input id="c3-dose" value="1e14" inputmode="decimal"></div>
+      <div class="fld"><label for="c3-nb">Background Nb (cm⁻³)</label><input id="c3-nb" value="1e16" inputmode="decimal"></div>
+     </div>
+     <p class="err" id="c3-err" hidden></p>
+     <dl class="out" id="c3-out"></dl>
+     <p class="formula">N(x) = Q/(√(2π)·ΔRp) · exp[−(x−Rp)²/(2ΔRp²)]      Np = 0.4·Q/ΔRp</p>
+    </div>
+
+    <div class="panel calc" id="c4">
+     <h3>4. Sheet resistance</h3>
+     <p class="sub">Estimate Rs of a doped layer from the profile in calculator 1 or 3, assuming every dopant is active.</p>
+     <div class="fields">
+      <div class="fld"><label for="c4-src">Profile source</label><select id="c4-src"><option value="diff">Calculator 1: after drive-in</option><option value="imp">Calculator 3: as implanted</option></select></div>
+     </div>
+     <p class="err" id="c4-err" hidden></p>
+     <dl class="out" id="c4-out"></dl>
+     <p class="formula">Rs = 1 / [ q ∫ μ(N)·(N − Nb) dx ]  over the doped layer.  μ: Caughey-Thomas fit for Si at 300 K</p>
+    </div>
+
+    <div class="panel calc" id="c5">
+     <h3>5. Diffusivity vs. temperature</h3>
+     <p class="sub">See how strongly temperature controls diffusion, and the time needed to reach a target depth.</p>
+     <div class="fields">
+      <div class="fld"><label for="c5-sp">Dopant</label><select id="c5-sp"><option value="B">Boron</option><option value="P">Phosphorus</option><option value="As">Arsenic</option></select></div>
+      <div class="fld"><label for="c5-T">Temperature (°C)</label><input id="c5-T" value="1000" inputmode="decimal"></div>
+      <div class="fld"><label for="c5-L">Target √(Dt) (µm)</label><input id="c5-L" value="0.1" inputmode="decimal"></div>
+     </div>
+     <canvas class="mini" id="c5-cv" role="img" aria-label="Diffusivity of boron, phosphorus and arsenic in silicon against temperature on a log scale"></canvas>
+     <p class="err" id="c5-err" hidden></p>
+     <dl class="out" id="c5-out"></dl>
+     <p class="formula">D = D₀·exp(−Ea/kT)   t = (√(Dt))² / D</p>
+    </div>
+
+   </div>
+  </div>
+ </section>
+
+<section class="view" id="v-videos" hidden>
+  <div class="wrap">
+   <header><h2>Videos</h2><p class="lede">Full university lectures for deeper study.</p></header>
+   <h3 style="margin:8px 0 0;font-family:var(--display)">Reference lectures</h3>
+   <div class="vgrid"><a class="vcard" href="https://www.youtube.com/watch?v=iaCZK8a_VMo" target="_blank" rel="noopener"><span class="tag">Diffusion</span><b>8. Dopant Diffusion: Need for Abrupt Profiles, Fick’s Laws, Simple Analytic Solutions</b><span class="src">MIT OpenCourseWare · 1 h 2 min</span><span class="why">Covers Fick’s laws and the erfc and Gaussian solutions used in the diffusion simulation and calculators.</span><span class="go">Watch ↗</span></a><a class="vcard" href="https://www.youtube.com/watch?v=of4_UZJWcLA" target="_blank" rel="noopener"><span class="tag">Implantation</span><b>12. Ion Implantation and Annealing: Analytic Models and Monte Carlo</b><span class="src">MIT OpenCourseWare · 1 h 16 min</span><span class="why">Implant profiles, projected range and straggle, and Monte Carlo ion simulation. Matches the profile lab.</span><span class="go">Watch ↗</span></a><a class="vcard" href="https://www.youtube.com/watch?v=02wEjlKtxKw" target="_blank" rel="noopener"><span class="tag">Implantation</span><b>13. Ion Implantation and Annealing: Physics of Energy Loss, Damage, Introduction to TED</b><span class="src">MIT OpenCourseWare · 1 h 11 min</span><span class="why">Energy loss, crystal damage and an introduction to transient-enhanced diffusion during anneal.</span><span class="go">Watch ↗</span></a><a class="vcard" href="https://classcentral.com/course/youtube-nack-s07-ion-implantation-thermal-oxidation-and-atomic-layer-deposition-318281" target="_blank" rel="noopener"><span class="tag">Implantation</span><b>Ion Implantation, Thermal Oxidation, and Atomic Layer Deposition, Lecture 7</b><span class="src">nanoHUB Tech Talks (NACK seminar) · about 1 h 47 min</span><span class="why">Ion implantation, channeling and damage, with SRIM and TRIM demos. Listed on Class Central.</span><span class="go">Watch ↗</span></a></div>
+   <p class="hint">These open on YouTube or Class Central in a new tab. They are full-length lectures, not short summaries, so use the topic list to skip to the parts you need. Check each link before presenting.</p>
+  </div>
+ </section>
+ <section class="view" id="v-theory" hidden>
+  <div class="wrap">
+   <header><h2>Theory notes</h2><p class="lede">The short version of what the simulations and calculators are built on.</p></header>
+   <div class="theory">
+    <div class="panel"><h3 style="margin:0;font-family:var(--display)">Why dope silicon?</h3>
+     <ul><li>Pure silicon conducts poorly. Dopants set the carrier type and concentration.</li><li>n-type donors: P, As, Sb. p-type acceptors: B, In.</li><li>Doping forms wells, source and drain, channel (Vt) adjust and p-n junctions.</li><li>Targets: junction depth xj, concentration, sheet resistance, abruptness.</li></ul></div>
+    <div class="panel"><h3 style="margin:0;font-family:var(--display)">Thermal diffusion</h3>
+     <p>Dopants move from high to low concentration at 900 to 1100 °C.</p>
+     <div class="eq">J = −D ∂N/∂x
+∂N/∂t = D ∂²N/∂x²
+D = D₀ exp(−Ea / kT)</div>
+     <ul><li>Constant source (predeposit): erfc profile, N = Cs·erfc(x / 2√(Dt)).</li><li>Limited source (drive-in): Gaussian, N = Q/√(πDt) · exp(−x² / 4Dt).</li><li>The peak is always at the surface.</li></ul></div>
+    <div class="panel"><h3 style="margin:0;font-family:var(--display)">Ion implantation</h3>
+     <p>Ions are accelerated into the wafer in vacuum. Energy sets depth, current and time set dose.</p>
+     <div class="eq">Dose = I·t / (q·n·A)
+N(x) = Q/(√(2π)·ΔRp) · exp[−(x−Rp)²/2ΔRp²]</div>
+     <ul><li>The peak lies below the surface at Rp.</li><li>Damage needs an anneal to repair and activate dopants.</li><li>Channeling gives a deep tail. A 7° tilt reduces it.</li><li>TED broadens shallow junctions during anneal.</li></ul></div>
+    <div class="panel"><h3 style="margin:0;font-family:var(--display)">Which one to use?</h3>
+     <div class="scroll"><table class="t"><thead><tr><th>Aspect</th><th>Diffusion</th><th>Implantation</th></tr></thead><tbody>
+      <tr><td>Temperature</td><td>High</td><td>Low, then anneal</td></tr>
+      <tr><td>Profile peak</td><td>Surface</td><td>Below surface</td></tr>
+      <tr><td>Control</td><td>Time, temperature</td><td>Dose and energy</td></tr>
+      <tr><td>Damage</td><td>Little</td><td>Yes</td></tr>
+      <tr><td>Cost</td><td>Cheap batch</td><td>Costly tool</td></tr></tbody></table></div>
+     <p>Modern ICs mainly use implant plus anneal. Diffusion remains best for deep, low-cost doping, and the drive-in after an implant is a diffusion step.</p></div>
+    <div class="panel" style="grid-column:1/-1"><h3 style="margin:0;font-family:var(--display)">Constants used in this site</h3>
+     <div class="scroll"><table class="t"><thead><tr><th>Dopant</th><th>D₀ (cm²/s)</th><th>Ea (eV)</th><th>Rp at 100 keV</th><th>ΔRp at 100 keV</th></tr></thead><tbody>
+      <tr><td>Boron</td><td>0.76</td><td>3.46</td><td>0.31 µm</td><td>0.07 µm</td></tr>
+      <tr><td>Phosphorus</td><td>3.85</td><td>3.66</td><td>0.13 µm</td><td>0.05 µm</td></tr>
+      <tr><td>Arsenic</td><td>24</td><td>4.08</td><td>0.058 µm</td><td>0.02 µm</td></tr></tbody></table></div>
+     <p class="hint">Textbook-style intrinsic diffusion constants and rounded LSS-style implant ranges, for teaching. Real processes depend on concentration, defects, ambient and equipment.</p></div>
+   </div>
+  </div>
+ </section>
+ <p class="foot">Doping Studio is a teaching tool. All results are model estimates and do not replace process simulation (TCAD) or measurement.</p>
+</div>
+<script>
+const KB=8.617e-5;
+const SPEC={
+ B:{name:'Boron',D0:0.76,Ea:3.46,ted:50,
+  rp:[[10,.035],[30,.10],[50,.16],[100,.31],[150,.46],[200,.60],[300,.85]],
+  dr:[[10,.015],[30,.034],[50,.044],[100,.07],[150,.085],[200,.10],[300,.12]]},
+ P:{name:'Phosphorus',D0:3.85,Ea:3.66,ted:30,
+  rp:[[10,.014],[30,.04],[50,.065],[100,.13],[150,.20],[200,.27],[300,.40]],
+  dr:[[10,.006],[30,.016],[50,.025],[100,.05],[150,.066],[200,.08],[300,.10]]},
+ As:{name:'Arsenic',D0:24,Ea:4.08,ted:3,
+  rp:[[10,.0075],[30,.022],[50,.035],[100,.058],[150,.087],[200,.12],[300,.18]],
+  dr:[[10,.003],[30,.008],[50,.012],[100,.02],[150,.03],[200,.042],[300,.06]]}
+};
+function erfc(x){const z=Math.abs(x),t=1/(1+0.5*z);
+ const r=t*Math.exp(-z*z-1.26551223+t*(1.00002368+t*(0.37409196+t*(0.09678418+t*(-0.18628806+t*(0.27886807+t*(-1.13520398+t*(1.48851587+t*(-0.82215223+t*0.17087277)))))))));
+ return x>=0?r:2-r;}
+function interp(t,x){if(x<=t[0][0])return t[0][1]*x/t[0][0];
+ for(let i=1;i<t.length;i++){if(x<=t[i][0]){const a=t[i-1],b=t[i];return a[1]+(b[1]-a[1])*(x-a[0])/(b[0]-a[0]);}}
+ return t[t.length-1][1];}
+function Dcoef(sp,T){return sp.D0*Math.exp(-sp.Ea/(KB*(T+273.15)));}
+function extent(f,x0,Nlow){let lo=Math.max(x0,0);if(f(lo)<=Nlow)return Math.max(lo,0.02);
+ let hi=Math.max(lo*1.5,0.02);while(f(hi)>Nlow&&hi<60)hi*=1.6;
+ for(let i=0;i<50;i++){const m=(lo+hi)/2;if(f(m)>Nlow)lo=m;else hi=m;}return Math.max(hi,0.02);}
+function diffProfile(S){const sp=SPEC[S.species],d=S.diff;
+ const Dt1=Dcoef(sp,d.T1)*d.t1*60,Cs=Math.pow(10,d.csExp),L1=2*Math.sqrt(Dt1)*1e4;
+ const A=x=>Cs*erfc(x/L1);const Q=2*Cs*Math.sqrt(Dt1/Math.PI);
+ let F=A,Ld=L1,Dt=Dt1;
+ if(d.drive){Dt=Dt1+Dcoef(sp,d.T2)*d.t2*60;Ld=2*Math.sqrt(Dt)*1e4;const c0=Q/Math.sqrt(Math.PI*Dt);F=x=>c0*Math.exp(-(x/Ld)*(x/Ld));}
+ return {kind:'diff',A,F,hasB:d.drive,xpeak:0,Q,Cs,Ld,L1};}
+function impProfile(S){const sp=SPEC[S.species],m=S.imp;
+ const Rp=interp(sp.rp,m.E),dr=interp(sp.dr,m.E),dose=Math.pow(10,m.doseExp);
+ const f=m.tilt?0:0.06,lam=0.5*Rp+1.5*dr;
+ const gauss=(sig,amp)=>x=>amp*dose/(Math.sqrt(2*Math.PI)*sig*1e-4)*(Math.exp(-0.5*((x-Rp)/sig)**2)+Math.exp(-0.5*((x+Rp)/sig)**2));
+ const C=f*dose/((dr*Math.sqrt(Math.PI/2)+lam)*1e-4);
+ const tail=x=>f?(x<Rp?C*Math.exp(-0.5*((Rp-x)/dr)**2):C*Math.exp(-(x-Rp)/lam)):0;
+ const gA=gauss(dr,1-f);const A=x=>gA(x)+tail(x);
+ let F=A,sig=dr;
+ if(m.anneal){const Deff=Dcoef(sp,m.Ta)*(m.ted?sp.ted:1);sig=Math.sqrt(dr*dr+2*Deff*Math.pow(10,m.taExp)*1e8);const gF=gauss(sig,1-f);F=x=>gF(x)+tail(x);}
+ return {kind:'imp',A,F,hasB:m.anneal,xpeak:Rp,Rp,dr,sig,dose,tilt:m.tilt};}
+function analyze(p,Nb){p.ext=extent(p.F,p.xpeak,Math.max(Nb/100,1e12));
+ const n=1200,h=p.ext/n;let peak=0,peakX=0,dose=0,prev=null;p.junctions=[];
+ for(let k=0;k<=n;k++){const x=k*h,v=p.F(x);if(v>peak){peak=v;peakX=x;}
+  dose+=v*h*1e-4*((k===0||k===n)?0.5:1);
+  if(prev!==null&&(prev-Nb)*(v-Nb)<0){const a=Math.log(Math.max(prev,1e-30)),b=Math.log(Math.max(v,1e-30)),t=(Math.log(Nb)-a)/(b-a);p.junctions.push(x-h+t*h);}
+  prev=v;}
+ p.peak=peak;p.peakX=peakX;p.surf=p.F(0);p.doseSi=dose;return p;}
+function niceCeil(x){const s=[0.05,0.1,0.15,0.2,0.3,0.4,0.5,0.75,1,1.5,2,3,4,5,8,10,20];for(const v of s)if(x<=v)return v;return Math.ceil(x);}
+function quantile(f,dmax){const n=600,xs=[],c=[0];let tot=0;
+ for(let k=0;k<=n;k++){xs.push(dmax*k/n);}
+ let prev=f(0);for(let k=1;k<=n;k++){const v=f(xs[k]);tot+=(prev+v)/2;c.push(tot);prev=v;}
+ return u=>{const t=u*tot;let lo=0,hi=n;while(hi-lo>1){const m=(lo+hi)>>1;if(c[m]<t)lo=m;else hi=m;}
+  const seg=c[hi]-c[lo]||1;return xs[lo]+(xs[hi]-xs[lo])*(t-c[lo])/seg;};}
+
+
+const QE=1.602e-19;
+const CT={B:{mn:44.9,mx:470.5,nr:2.23e17,a:0.719},P:{mn:68.5,mx:1414,nr:9.2e16,a:0.711},As:{mn:52.2,mx:1417,nr:9.68e16,a:0.68}};
+function mobility(sp,N){const c=CT[sp];return c.mn+(c.mx-c.mn)/(1+Math.pow(N/c.nr,c.a));}
+function erfcinv(y){let lo=-6,hi=6;for(let i=0;i<80;i++){const m=(lo+hi)/2;if(erfc(m)>y)lo=m;else hi=m;}return (lo+hi)/2;}
+function calcDiff(p){const sp=SPEC[p.sp],D1=Dcoef(sp,p.T1),Dt1=D1*p.t1*60,L1=2*Math.sqrt(Dt1)*1e4;
+ const Q=2*p.Cs*Math.sqrt(Dt1/Math.PI);
+ const r={D1,Dt1,L1,Q,xj1:p.Nb<p.Cs?L1*erfcinv(p.Nb/p.Cs):0};
+ const D2=Dcoef(sp,p.T2),Dt=Dt1+D2*p.t2*60;r.D2=D2;r.Dt=Dt;r.sigma=Math.sqrt(2*Dt)*1e4;
+ r.N0=Q/Math.sqrt(Math.PI*Dt);r.xj2=r.N0>p.Nb?Math.sqrt(4*Dt*Math.log(r.N0/p.Nb))*1e4:0;
+ const Ld=2*Math.sqrt(Dt)*1e4;r.prof={F:x=>r.N0*Math.exp(-(x/Ld)*(x/Ld)),xpeak:0};return r;}
+function calcBeam(p){const A=Math.PI*Math.pow(p.dmm/20,2);const I=p.uA*1e-6*p.eff/100;
+ return {A,time:p.dose*QE*p.n*A/I,dose:I*p.t/(QE*p.n*A)};}
+function sheetRes(prof,Nb,sp){analyze(prof,Nb);const n=3000,h=prof.ext/n;let G=0;
+ for(let k=0;k<=n;k++){const x=k*h,N=prof.F(x);if(N>Nb){G+=mobility(sp,N+Nb)*(N-Nb)*h*1e-4*((k===0||k===n)?0.5:1);}}
+ G*=QE;return {Rs:G>0?1/G:Infinity,xj:prof.junctions};}
+
+
+(function(){
+const $=id=>document.getElementById(id);
+const S={mode:'diff',species:'B',nbExp:16,log:true,overlay:true,
+ diff:{csExp:20,T1:950,t1:30,drive:true,T2:1050,t2:60},
+ imp:{E:100,doseExp:14,tilt:true,anneal:true,Ta:1000,taExp:1.5,ted:true}};
+const SUP='⁰¹²³⁴⁵⁶⁷⁸⁹';
+const sup=n=>String(n).split('').map(c=>c==='-'?'⁻':SUP[+c]).join('');
+function sci(v){if(!(v>0))return '0';let e=Math.floor(Math.log10(v)),m=v/Math.pow(10,e);if(m.toFixed(1)==='10.0'){m=1;e++;}return m.toFixed(1)+'×10'+sup(e);}
+function dep(x){return x<0.1?(x*1000).toFixed(0)+' nm':x.toFixed(2)+' µm';}
+function timeStr(s){return s<60?Math.round(s)+' s':(s/60).toFixed(s<600?1:0)+' min';}
+const M={};let dmax=1,atoms=null,cw=600,ch=460,dpr=1,t0=0,raf=0,total=1,lastPhase='';
+const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const cv=$('cv'),ctx=cv.getContext('2d');
+const act=()=>S.mode==='diff'?M.diff:M.imp;
+const oth=()=>S.mode==='diff'?M.imp:M.diff;
+function build(){
+ const Nb=Math.pow(10,S.nbExp);
+ M.diff=analyze(diffProfile(S),Nb);M.imp=analyze(impProfile(S),Nb);
+ let e=act().ext;if(S.overlay)e=Math.max(e,oth().ext);
+ dmax=niceCeil(e*1.05);
+ const a=act(),qA=quantile(a.A,dmax),qF=quantile(a.F,dmax),n=320;atoms=[];
+ let seed=12345;const rnd=()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};
+ const idx=[...Array(n).keys()];for(let i=n-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]];}
+ for(let i=0;i<n;i++){const u=Math.min(0.995,Math.max(0.005,(idx[i]+rnd())/n));
+  atoms.push({dA:qA(u),dF:qF(u),rx:rnd(),dl:rnd()});}
+ total=a.hasB?5.4:3.8;
+ renderDom();
+}
+function tokens(){const cs=getComputedStyle(document.documentElement),g=n=>cs.getPropertyValue(n).trim();
+ return {ink:g('--ink'),muted:g('--muted'),line:g('--line'),grid:g('--grid'),heat:g('--heat'),beam:g('--beam'),si:g('--si'),surface:g('--surface')};}
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const easeOut=u=>1-Math.pow(1-clamp(u),3),easeIO=u=>{u=clamp(u);return u*u*(3-2*u);};
+function niceStep(range,target){const raw=range/target,p=Math.pow(10,Math.floor(Math.log10(raw))),m=raw/p;return (m<1.5?1:m<3?2:m<7?5:10)*p;}
+function sizeCanvas(){const w=cv.parentElement.clientWidth-20;cw=Math.max(300,w);ch=Math.round(Math.min(520,Math.max(380,cw*0.78)));
+ dpr=window.devicePixelRatio||1;cv.width=cw*dpr;cv.height=ch*dpr;cv.style.height=ch+'px';}
+function draw(el){
+ const C=tokens(),a=act(),o=oth(),diff=S.mode==='diff',col=diff?C.heat:C.beam,ocol=diff?C.beam:C.heat;
+ ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,cw,ch);
+ const mTop=66,mBot=40,mL=46,mR=14,x0=mL,x1=mL+(cw-mL-mR)*0.40,px0=x1+14,px1=cw-mR,pw=px1-px0,ph=ch-mTop-mBot,ww=x1-x0;
+ const yOf=d=>mTop+d/dmax*ph;
+ const T1=a.hasB?2.6:3.0,gap=0.4,T2=2.0;
+ const p2=a.hasB?easeIO((el-T1-gap)/T2):0,inP2=a.hasB&&el>T1+gap,final=el>total;
+ const heatOn=diff||inP2;
+ ctx.font='11px "IBM Plex Mono",ui-monospace,monospace';ctx.textBaseline='middle';
+ // depth grid
+ const dstep=niceStep(dmax,6),dd=dstep<0.1?3:dstep<1?2:1;
+ ctx.lineWidth=1;
+ for(let d=0;d<=dmax+1e-9;d+=dstep){const y=yOf(d);ctx.strokeStyle=C.grid;ctx.beginPath();ctx.moveTo(x0,y);ctx.lineTo(px1,y);ctx.stroke();
+  ctx.fillStyle=C.muted;ctx.textAlign='right';ctx.fillText(dstep<0.1?(d*1000).toFixed(0)+'nm':d.toFixed(dd>2?2:dd===2?2:1),x0-6,y);}
+ ctx.save();ctx.translate(11,mTop+ph/2);ctx.rotate(-Math.PI/2);ctx.textAlign='center';ctx.fillStyle=C.muted;ctx.fillText(dstep<0.1?'Depth':'Depth (µm)',0,0);ctx.restore();
+ // wafer
+ ctx.fillStyle=C.si;ctx.fillRect(x0,mTop,ww,ph);
+ if(heatOn){ctx.globalAlpha=0.16;ctx.fillStyle=C.heat;ctx.fillRect(x0,mTop,ww,ph);ctx.globalAlpha=1;}
+ ctx.fillStyle=C.muted;ctx.textAlign='left';ctx.fillText('silicon',x0+6,mTop+ph-10);
+ // top apparatus
+ ctx.textAlign='left';
+ if(diff){
+  if(!inP2){ctx.globalAlpha=0.35;ctx.fillStyle=C.heat;ctx.fillRect(x0,mTop-20,ww,20);ctx.globalAlpha=1;ctx.fillStyle=C.ink;ctx.fillText(el<T1+gap?'dopant source (constant)':'',x0+6,mTop-10);}
+  else{ctx.fillStyle=C.muted;ctx.globalAlpha=0.5;ctx.fillRect(x0,mTop-20,ww,20);ctx.globalAlpha=1;ctx.fillStyle=C.ink;ctx.fillText('oxide cap, no new dopant',x0+6,mTop-10);}
+  const T=inP2?S.diff.T2:S.diff.T1,tm=inP2?S.diff.t2:S.diff.t1;ctx.fillStyle=C.heat;ctx.fillText(T+' °C · '+tm+' min',x0,mTop-40);
+ }else{
+  const rw=ww*0.28;ctx.fillStyle=C.muted;ctx.globalAlpha=0.55;ctx.fillRect(x0,mTop-16,rw,16);ctx.fillRect(x1-rw,mTop-16,rw,16);ctx.globalAlpha=1;
+  ctx.fillStyle=C.ink;ctx.fillText('resist',x0+4,mTop-8);ctx.textAlign='right';ctx.fillText('resist',x1-4,mTop-8);ctx.textAlign='left';
+  ctx.fillStyle=C.beam;ctx.fillText(inP2?'anneal '+S.imp.Ta+' °C · '+timeStr(Math.pow(10,S.imp.taExp)):S.imp.E+' keV · '+sci(Math.pow(10,S.imp.doseExp))+' cm⁻²',x0,mTop-40);
+  if(el<T1){ctx.strokeStyle=C.beam;ctx.lineWidth=1.5;for(let k=0;k<5;k++){const x=x0+rw+8+(ww-2*rw-16)*(k+0.5)/5,off=(el*140+k*9)%30;ctx.beginPath();ctx.moveTo(x,mTop-34+off);ctx.lineTo(x,mTop-22+off);ctx.stroke();}}
+ }
+ // atoms
+ const winL=x0+ww*0.28,winR=x1-ww*0.28;ctx.lineWidth=1;
+ for(let i=0;i<atoms.length;i++){const A=atoms[i];let y,x,landed=true,streak=false;
+  if(diff){const u=clamp((el-A.dl*T1*0.35)/(T1*0.65));if(u<=0)continue;
+   const d=A.dA*easeOut(u)+(A.dF-A.dA)*p2;y=yOf(d);x=x0+6+A.rx*(ww-12);if(!final&&heatOn)x+=Math.sin(el*7+i)*1.3;}
+  else{const dl=A.dl*T1*0.7,u=clamp((el-dl)/0.9);if(el<dl)continue;
+   const yA=yOf(A.dA);y=(mTop-34)+(yA-(mTop-34))*easeOut(u);landed=u>=1;streak=u<1;
+   if(p2>0)y=yOf(A.dA+(A.dF-A.dA)*p2);x=winL+6+A.rx*(winR-winL-12);if(!final&&inP2)x+=Math.sin(el*7+i)*1.3;}
+  if(streak){ctx.strokeStyle=C.beam;ctx.beginPath();ctx.moveTo(x,y-12);ctx.lineTo(x,y);ctx.stroke();}
+  if(!diff&&landed){const f=S.imp.anneal?1-p2:1;if(f>0.02){ctx.globalAlpha=f;ctx.strokeStyle=C.ink;ctx.beginPath();ctx.moveTo(x+3,y-1);ctx.lineTo(x+7,y+3);ctx.moveTo(x+7,y-1);ctx.lineTo(x+3,y+3);ctx.stroke();ctx.globalAlpha=1;}}
+  ctx.fillStyle=col;ctx.beginPath();ctx.arc(x,y,2.6,0,6.2832);ctx.fill();
+  if(!diff&&p2>0.8){ctx.strokeStyle=C.surface;ctx.beginPath();ctx.arc(x,y,2.6,0,6.2832);ctx.stroke();}
+ }
+ ctx.strokeStyle=C.ink;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x0,mTop);ctx.lineTo(x1,mTop);ctx.stroke();
+ // plot
+ const Nb=Math.pow(10,S.nbExp);let lo=13,hi=22,nmax=1;
+ if(!S.log){nmax=a.peak;if(S.overlay)nmax=Math.max(nmax,o.peak);nmax*=1.1;}
+ const xc=N=>S.log?px0+(Math.log10(Math.max(N,1e-30))-lo)/(hi-lo)*pw:px0+clamp(N/nmax,0,1.5)*pw;
+ ctx.strokeStyle=C.line;ctx.lineWidth=1;ctx.strokeRect(px0,mTop,pw,ph);
+ ctx.textAlign='center';ctx.fillStyle=C.muted;
+ if(S.log){for(let e=14;e<=22;e+=2){const x=px0+(e-lo)/(hi-lo)*pw;ctx.strokeStyle=C.grid;ctx.beginPath();ctx.moveTo(x,mTop);ctx.lineTo(x,mTop+ph);ctx.stroke();ctx.fillText('1e'+e,x,mTop+ph+14);}}
+ else{const st=niceStep(nmax,4);for(let v=0;v<=nmax;v+=st){const x=px0+v/nmax*pw;ctx.strokeStyle=C.grid;ctx.beginPath();ctx.moveTo(x,mTop);ctx.lineTo(x,mTop+ph);ctx.stroke();ctx.fillText(v===0?'0':v.toExponential(0).replace('+',''),x,mTop+ph+14);}}
+ ctx.fillStyle=C.muted;ctx.textAlign='left';ctx.fillText('Concentration (cm⁻³)',px0,mTop-40);ctx.textAlign='center';ctx.fillText(S.log?'log scale':'linear scale',px0+pw/2,mTop+ph+30);
+ // background line
+ const xb=xc(Nb);if(xb>px0&&xb<px1){ctx.setLineDash([5,4]);ctx.strokeStyle=C.ink;ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(xb,mTop);ctx.lineTo(xb,mTop+ph);ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle=C.ink;ctx.textAlign=xb>px0+pw*0.6?'right':'left';ctx.fillText('background',xb+(xb>px0+pw*0.6?-5:5),mTop-12);}
+ const curve=(f,color,w,dash,alpha)=>{ctx.strokeStyle=color;ctx.lineWidth=w;ctx.globalAlpha=alpha;ctx.setLineDash(dash);ctx.beginPath();
+  for(let k=0;k<=240;k++){const d=dmax*k/240,x=Math.max(px0,Math.min(px1,xc(f(d)))),y=yOf(d);k?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;};
+ if(S.overlay)curve(o.F,ocol,2,[],0.85);
+ if(a.hasB)curve(a.A,col,2,[6,4],0.55);
+ curve(a.F,col,3,[],1);
+ const jmark=(p,color,label)=>p.junctions.forEach((xj,idx)=>{const x=xc(Nb),y=yOf(xj);if(y>mTop+ph)return;ctx.fillStyle=color;ctx.strokeStyle=C.surface;ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,5,0,6.2832);ctx.fill();ctx.stroke();
+  if(label){ctx.fillStyle=C.ink;const right=x<px0+pw*0.6;ctx.textAlign=right?'left':'right';ctx.fillText('xj '+dep(xj),x+(right?10:-10),y-(idx?0:0));}});
+ jmark(a,col,true);if(S.overlay)jmark(o,ocol,false);
+ // phase caption
+ const ph1=diff?'1 · Predeposit: dopant enters from a constant source':'1 · Implant: ions slow down and stop near the projected range';
+ const ph2=diff?'2 · Drive-in: source removed, same dose spreads deeper':'2 · Anneal: heat repairs damage and moves dopant a little';
+ const txt=inP2?ph2:ph1;if(txt!==lastPhase){$('phase').textContent=a.hasB?txt:(diff?'Predeposit only · dopant enters from a constant source':'Implant only · ions slow down and stop near the projected range');lastPhase=txt;}
+}
+function renderDom(){
+ const a=act(),o=oth(),diff=S.mode==='diff',s=SPEC[S.species];
+ document.querySelectorAll('.mtab').forEach(t=>t.setAttribute('aria-selected',t.dataset.mode===S.mode));
+ $('pDiff').hidden=!diff;$('pImp').hidden=diff;
+ $('driveRows').hidden=!S.diff.drive;$('annealRows').hidden=!S.imp.anneal;
+ document.documentElement.style.setProperty('--accent',diff?'var(--heat)':'var(--beam)');
+ const sw=(c,t,dash)=>`<span><i class="${dash?'dash':''}" style="border-color:${c}"></i>${t}</span>`;
+ let lg=sw(diff?'var(--heat)':'var(--beam)',diff?(a.hasB?'Diffusion after drive-in':'Diffusion (predeposit)'):(a.hasB?'Implant after anneal':'Implant as-implanted'));
+ if(a.hasB)lg+=sw(diff?'var(--heat)':'var(--beam)',diff?'After predeposit only':'As-implanted',true);
+ if(S.overlay)lg+=sw(diff?'var(--beam)':'var(--heat)',diff?'Ion implantation (current settings)':'Diffusion (current settings)');
+ lg+='<span><i class="dash" style="border-color:var(--ink)"></i>Background doping</span>';
+ $('legend').innerHTML=lg;
+ const jx=p=>p.junctions.length?p.junctions.map(dep).join(' and '):'none in range';
+ let cards;
+ if(diff){const d=S.diff;cards=[['Surface concentration',sci(a.surf),'cm⁻³'],['Junction depth',jx(a),'where profile meets background'],['Dose in silicon',sci(a.doseSi),'cm⁻², from the profile'],[a.hasB?'Drive-in length 2√(Dt)':'Predeposit length 2√(Dt)',dep(a.Ld*1),s.name+' at '+(a.hasB?d.T2:d.T1)+' °C']];}
+ else{cards=[['Peak concentration',sci(a.peak),'cm⁻³ at '+dep(a.peakX)],['Surface concentration',sci(a.surf),Math.round(a.surf/a.peak*100)+'% of the peak'],['Junction depth',jx(a),a.junctions.length>1?'surface layer is below background':'where profile meets background'],['Range Rp ± ΔRp',dep(a.Rp)+' ± '+dep(a.sig),s.name+' at '+S.imp.E+' keV']];}
+ $('stats').innerHTML=cards.map(c=>`<div class="stat"><div class="k">${c[0]}</div><div class="v">${c[1]}</div><div class="s">${c[2]}</div></div>`).join('');
+ let n;
+ if(diff){n=`The peak is at the surface (${sci(a.peak)}). `+(a.hasB?`The drive-in lowered it from ${sci(a.Cs)} while keeping the dose near ${sci(a.Q)} cm⁻² and pushed the junction to ${jx(a)}.`:`The profile falls off like erfc, and the junction sits at ${jx(a)}.`);}
+ else{n=`The peak sits ${dep(a.Rp)} below the surface, and the surface holds only ${Math.round(a.surf/a.peak*100)}% of it. `+(a.tilt?'':'With no tilt, ions channel along crystal rows and add a deep tail. ')+(a.hasB?`Annealing widened ΔRp from ${dep(a.dr)} to ${dep(a.sig)}.`:'Without an anneal the dopant stays in damaged, inactive silicon.');}
+ if(S.overlay)n+=` Compare: diffusion junction ${jx(M.diff)}, implant junction ${jx(M.imp)}.`;
+ $('notice').textContent=n;$('l-big').textContent=diff?jx(a):dep(a.Rp);$('l-bigk').textContent=diff?'Junction depth xj':'Projected range Rp (peak depth)';$('l-bigs').textContent=diff?'where the profile meets the background':'ion energy sets how deep the peak sits';
+ // sync controls
+ const set=(id,v,txt)=>{const e=$(id);if(e&&document.activeElement!==e)e.value=v;const out=$(id+'_o');if(out)out.textContent=txt;};
+ set('nb',S.nbExp,sci(Math.pow(10,S.nbExp))+' cm⁻³');set('cs',S.diff.csExp,sci(Math.pow(10,S.diff.csExp))+' cm⁻³');
+ set('T1',S.diff.T1,S.diff.T1+' °C');set('t1',S.diff.t1,S.diff.t1+' min');set('T2',S.diff.T2,S.diff.T2+' °C');set('t2',S.diff.t2,S.diff.t2+' min');
+ set('E',S.imp.E,S.imp.E+' keV');set('dose',S.imp.doseExp,sci(Math.pow(10,S.imp.doseExp))+' cm⁻²');
+ set('Ta',S.imp.Ta,S.imp.Ta+' °C');set('ta',S.imp.taExp,timeStr(Math.pow(10,S.imp.taExp)));
+ $('drive').checked=S.diff.drive;$('tilt').checked=S.imp.tilt;$('anneal').checked=S.imp.anneal;$('ted').checked=S.imp.ted;$('overlay').checked=S.overlay;
+ document.querySelectorAll('#species button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===S.species));
+ document.querySelectorAll('#axis button').forEach(b=>b.setAttribute('aria-pressed',(b.dataset.v==='log')===S.log));
+ cv.setAttribute('aria-label',`${diff?'Thermal diffusion':'Ion implantation'} of ${s.name.toLowerCase()}: peak ${sci(a.peak)} per cubic centimetre, junction at ${jx(a)}.`);
+}
+function play(){cancelAnimationFrame(raf);lastPhase='';if(reduce){draw(total+1);return;}t0=performance.now();
+ const loop=now=>{const el=(now-t0)/1000;if(el<total){draw(el);raf=requestAnimationFrame(loop);}else draw(total+1);};raf=requestAnimationFrame(loop);}
+function still(){cancelAnimationFrame(raf);build();draw(total+1);}
+function bindRange(id,get,set,live=true){const e=$(id);
+ e.addEventListener('input',()=>{set(parseFloat(e.value));still();});
+ e.addEventListener('change',()=>{play();});}
+bindRange('nb',()=>S.nbExp,v=>S.nbExp=v);bindRange('cs',0,v=>S.diff.csExp=v);bindRange('T1',0,v=>S.diff.T1=v);bindRange('t1',0,v=>S.diff.t1=v);
+bindRange('T2',0,v=>S.diff.T2=v);bindRange('t2',0,v=>S.diff.t2=v);bindRange('E',0,v=>S.imp.E=v);bindRange('dose',0,v=>S.imp.doseExp=v);
+bindRange('Ta',0,v=>S.imp.Ta=v);bindRange('ta',0,v=>S.imp.taExp=v);
+const chk=(id,fn)=>$(id).addEventListener('change',e=>{fn(e.target.checked);build();play();});
+chk('drive',v=>S.diff.drive=v);chk('tilt',v=>S.imp.tilt=v);chk('anneal',v=>S.imp.anneal=v);chk('ted',v=>S.imp.ted=v);chk('overlay',v=>S.overlay=v);
+document.querySelectorAll('#species button').forEach(b=>b.addEventListener('click',()=>{S.species=b.dataset.v;build();play();}));
+document.querySelectorAll('#axis button').forEach(b=>b.addEventListener('click',()=>{S.log=b.dataset.v==='log';build();draw(total+1);}));
+document.querySelectorAll('.mtab').forEach(t=>t.addEventListener('click',()=>{S.mode=t.dataset.mode;build();play();}));
+$('replay').addEventListener('click',play);
+const EXP=[
+ {t:'Deeper with energy',d:'Starts at 30 keV. Drag the energy up to 200 keV and watch the peak move down and flatten.',s:{mode:'imp',imp:{E:30,tilt:true,anneal:false}}},
+ {t:'Ten times the dose',d:'Raise the dose by one step of 10. On the log axis the whole curve shifts right by one decade. The depth does not change.',s:{mode:'imp',imp:{E:100,doseExp:14,anneal:false}}},
+ {t:'Turn off the wafer tilt',d:'Untick the tilt and an unannealed channeling tail appears far beyond the main peak.',s:{mode:'imp',imp:{tilt:false,anneal:false,E:100,doseExp:14}}},
+ {t:'Arsenic vs boron',d:'Same 100 keV, heavier ion. Arsenic stops much closer to the surface, which suits shallow junctions.',s:{mode:'imp',species:'As',imp:{E:100,doseExp:14,tilt:true,anneal:false}}},
+ {t:'Hotter furnace',d:'Predeposit only at 900 °C. Raise the temperature by 100 °C and compare the junction depth.',s:{mode:'diff',diff:{drive:false,T1:900,t1:30,csExp:20}}},
+ {t:'Add a drive-in',d:'Tick the drive-in step. The surface concentration drops while the dose stays the same.',s:{mode:'diff',diff:{drive:true,T1:950,t1:30,csExp:20,T2:1050,t2:60}}}];
+$('exp').innerHTML=EXP.map((e,i)=>`<button type="button" data-i="${i}"><b>${e.t}</b><span>${e.d}</span></button>`).join('');
+$('exp').addEventListener('click',ev=>{const b=ev.target.closest('button');if(!b)return;const e=EXP[+b.dataset.i].s;
+ if(e.mode)S.mode=e.mode;if(e.species)S.species=e.species;if(!e.species&&e.mode)S.species='B';if(e.diff)Object.assign(S.diff,e.diff);if(e.imp)Object.assign(S.imp,e.imp);S.overlay=true;
+ build();play();window.scrollTo({top:0,behavior:'smooth'});});
+new ResizeObserver(()=>{sizeCanvas();draw(total+1);}).observe(cv.parentElement);
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>draw(total+1));
+new MutationObserver(()=>draw(total+1)).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+sizeCanvas();build();play();
+window.__labShow=()=>{sizeCanvas();draw(total+1);};
+
+})();
+
+(function(){
+const $=id=>document.getElementById(id);
+const SUPD='⁰¹²³⁴⁵⁶⁷⁸⁹';
+const sup=n=>String(n).split('').map(c=>c==='-'?'⁻':SUPD[+c]).join('');
+function sci(v){if(!(v>0))return '0';let e=Math.floor(Math.log10(v)),m=v/Math.pow(10,e);if(m.toFixed(2)==='10.00'){m=1;e++;}return m.toFixed(2)+'×10'+sup(e);}
+function dep(x){return x<0.1?(x*1000).toFixed(0)+' nm':x.toFixed(2)+' µm';}
+function tstr(s){return s<60?s.toFixed(s<10?2:1)+' s':s<3600?(s/60).toFixed(1)+' min':(s/3600).toFixed(2)+' h';}
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+function tok(){const cs=getComputedStyle(document.documentElement),g=n=>cs.getPropertyValue(n).trim();
+ return {ink:g('--ink'),muted:g('--muted'),line:g('--line'),grid:g('--grid'),heat:g('--heat'),beam:g('--beam'),teal:g('--teal'),si:g('--si'),surface:g('--surface')};}
+function niceStep(range,target){const raw=range/target,p=Math.pow(10,Math.floor(Math.log10(raw))),m=raw/p;return (m<1.5?1:m<3?2:m<7?5:10)*p;}
+const MONO='11px "IBM Plex Mono",ui-monospace,monospace';
+
+/* ---------- Monte Carlo diffusion ---------- */
+const sim=(function(){
+ const st={sp:'B',T:1050,min:120,n:2000,u:0,playing:false,last:0};
+ const cv=$('m-cv'),ctx=cv.getContext('2d');let cw=600,ch=460,dpr=1;
+ const K=240,S0=0.02,NX=140;let C,z0,xp,D,Ttot,DEPTH,PEAK,fd={};
+ const mb=s=>()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};
+ const gs=r=>{const u=1-r(),v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);};
+ function gen(){const n=st.n,r=mb(7);C=new Float32Array(n*K);z0=new Float32Array(n);xp=new Float32Array(n);
+  for(let i=0;i<n;i++){z0[i]=Math.abs(gs(r))*S0;xp[i]=r();let s=0;for(let k=0;k<K;k++){s+=gs(r);C[i*K+k]=s;}}}
+ function setup(){D=Dcoef(SPEC[st.sp],st.T)*1e8;Ttot=st.min*60;
+  DEPTH=Math.max(0.25,3.2*Math.sqrt(S0*S0+2*D*Ttot));PEAK=2/Math.sqrt(2*Math.PI*(S0*S0+2*D*Ttot));
+  fd.dx=DEPTH/NX;fd.dt=0.2*fd.dx*fd.dx/D;fd.xs=new Float64Array(NX);for(let i=0;i<NX;i++)fd.xs[i]=(i+0.5)*fd.dx;fdReset();}
+ function fdReset(){fd.N=new Float64Array(NX);let s=0;for(let i=0;i<NX;i++){fd.N[i]=Math.exp(-fd.xs[i]*fd.xs[i]/(2*S0*S0));s+=fd.N[i];}
+  for(let i=0;i<NX;i++)fd.N[i]/=s*fd.dx;fd.t=0;fd.tmp=new Float64Array(NX);}
+ function fdAdvance(t){if(t<fd.t)fdReset();const a=fd.dx;
+  while(fd.t<t){const h=Math.min(fd.dt,t-fd.t),c=D*h/(a*a),N=fd.N,T=fd.tmp;
+   for(let i=0;i<NX;i++){const l=i?N[i-1]:N[0],r=i<NX-1?N[i+1]:N[NX-1];T[i]=N[i]+c*(r-2*N[i]+l);}
+   fd.N=T;fd.tmp=N;fd.t+=h;}}
+ const analytic=(x,t)=>{const s2=S0*S0+2*D*t;return 2/Math.sqrt(2*Math.PI*s2)*Math.exp(-x*x/(2*s2));};
+ function depthAt(i,kf){const k0=Math.floor(kf),fr=kf-k0;const a=k0===0?0:C[i*K+k0-1],b=k0>=K?C[i*K+K-1]:C[i*K+k0];
+  return Math.abs(z0[i]+(a+(b-a)*fr)*Math.sqrt(2*D*Ttot/K));}
+ function size(){const w=cv.parentElement.clientWidth-20;if(w<50)return false;cw=Math.max(300,w);ch=Math.round(Math.min(520,Math.max(380,cw*0.78)));dpr=window.devicePixelRatio||1;cv.width=cw*dpr;cv.height=ch*dpr;cv.style.height=ch+'px';return true;}
+ function draw(){if(!C||cv.parentElement.clientWidth<50)return;const Cc=tok(),t=st.u*Ttot,kf=st.u*K;
+  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,cw,ch);ctx.font=MONO;ctx.textBaseline='middle';
+  const mTop=50,mBot=40,mL=46,mR=14,x0=mL,x1=mL+(cw-mL-mR)*0.40,px0=x1+14,px1=cw-mR,pw=px1-px0,ph=ch-mTop-mBot,ww=x1-x0;
+  const yOf=d=>mTop+d/DEPTH*ph;
+  const ds=niceStep(DEPTH,6);ctx.lineWidth=1;
+  for(let d=0;d<=DEPTH+1e-9;d+=ds){const y=yOf(d);ctx.strokeStyle=Cc.grid;ctx.beginPath();ctx.moveTo(x0,y);ctx.lineTo(px1,y);ctx.stroke();ctx.fillStyle=Cc.muted;ctx.textAlign='right';ctx.fillText(d.toFixed(ds<0.1?2:ds<1?2:1),x0-6,y);}
+  ctx.save();ctx.translate(11,mTop+ph/2);ctx.rotate(-Math.PI/2);ctx.textAlign='center';ctx.fillStyle=Cc.muted;ctx.fillText('Depth (µm)',0,0);ctx.restore();
+  ctx.fillStyle=Cc.si;ctx.fillRect(x0,mTop,ww,ph);ctx.globalAlpha=0.16;ctx.fillStyle=Cc.heat;ctx.fillRect(x0,mTop,ww,ph);ctx.globalAlpha=1;
+  ctx.fillStyle=Cc.muted;ctx.textAlign='left';ctx.fillText('silicon wafer, '+st.T+' °C',x0,mTop-18);
+  const n=st.n,rad=n>2000?1.8:2.2;ctx.fillStyle=Cc.heat;const wig=st.playing?1.2:0;
+  const bins=50,hist=new Float64Array(bins),bw=DEPTH/bins;
+  for(let i=0;i<n;i++){const d=depthAt(i,kf);if(d<DEPTH){hist[Math.min(bins-1,Math.floor(d/bw))]++;}
+   const x=x0+4+xp[i]*(ww-8)+(wig?Math.sin(performance.now()/90+i)*wig:0),y=yOf(Math.min(d,DEPTH));ctx.beginPath();ctx.arc(x,y,rad,0,6.2832);ctx.fill();}
+  ctx.strokeStyle=Cc.ink;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x0,mTop);ctx.lineTo(x1,mTop);ctx.stroke();
+  const xmax=4*PEAK,xc=v=>px0+clamp(v/xmax,0,1.05)*pw;
+  ctx.strokeStyle=Cc.line;ctx.lineWidth=1;ctx.strokeRect(px0,mTop,pw,ph);
+  const st2=niceStep(xmax,4);ctx.textAlign='center';ctx.fillStyle=Cc.muted;
+  for(let v=0;v<=xmax;v+=st2){const x=xc(v);ctx.strokeStyle=Cc.grid;ctx.beginPath();ctx.moveTo(x,mTop);ctx.lineTo(x,mTop+ph);ctx.stroke();ctx.fillText(v.toFixed(st2<1?1:0),x,mTop+ph+14);}
+  ctx.fillText('Relative concentration (same total dose)',px0+pw/2,mTop+ph+30);
+  ctx.textAlign='left';ctx.fillText('Concentration profile',px0,mTop-18);
+  ctx.strokeStyle=Cc.heat;ctx.lineWidth=2;ctx.globalAlpha=0.9;ctx.beginPath();
+  for(let b=0;b<bins;b++){const dens=hist[b]/(n*bw),y0=yOf(b*bw),y1=yOf((b+1)*bw),x=xc(dens);b?ctx.lineTo(x,y0):ctx.moveTo(x,y0);ctx.lineTo(x,y1);}ctx.stroke();ctx.globalAlpha=1;
+  fdAdvance(t);ctx.strokeStyle=Cc.teal;ctx.lineWidth=3;ctx.beginPath();for(let i=0;i<NX;i++){const x=xc(fd.N[i]),y=yOf(fd.xs[i]);i?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();
+  ctx.strokeStyle=Cc.ink;ctx.lineWidth=1.5;ctx.setLineDash([6,4]);ctx.beginPath();for(let k=0;k<=160;k++){const d=DEPTH*k/160,x=xc(analytic(d,t)),y=yOf(d);k?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();ctx.setLineDash([]);
+  const sg=Math.sqrt(S0*S0+2*D*t);
+  $('m-stats').innerHTML=[['Elapsed time',tstr(t),'of '+tstr(Ttot)],['Diffusivity D',sci(D*1e-8)+' cm²/s',SPEC[st.sp].name+' at '+st.T+' °C'],['Spread σ = √(2Dt)',dep(sg),'width of the Gaussian'],['Surface concentration',(analytic(0,t)).toFixed(2),'relative, falls as 1/σ']].map(c=>`<div class="stat"><div class="k">${c[0]}</div><div class="v">${c[1]}</div><div class="s">${c[2]}</div></div>`).join('');
+  $('m-notice').textContent=st.u<0.01?'Start: every atom sits in a thin layer at the surface.':`The atoms keep the same total dose, so as they spread the surface concentration drops. The three curves agree because all describe the same diffusion: the random walk, Fick's law and its Gaussian solution.`;
+  $('m-u_o').textContent=tstr(t);$('m-big').textContent=dep(sg);}
+ function sync(){const o=(id,v,txt)=>{const e=$(id);if(document.activeElement!==e)e.value=v;$(id+'_o').textContent=txt;};
+  o('m-T',st.T,st.T+' °C');o('m-min',st.min,st.min+' min');
+  document.querySelectorAll('#m-species button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===st.sp));
+  $('m-play').textContent=st.playing?'Pause':'Play';}
+ function reparam(){setup();sync();draw();}
+ function loop(now){if(!st.playing)return;const dt=(now-st.last)/1000;st.last=now;st.u+=dt/14;
+  if(st.u>=1){st.u=1;st.playing=false;sync();}$('m-u').value=Math.round(st.u*1000);draw();if(st.playing)requestAnimationFrame(loop);}
+ document.querySelectorAll('#m-species button').forEach(b=>b.addEventListener('click',()=>{st.sp=b.dataset.v;reparam();}));
+ $('m-T').addEventListener('input',e=>{st.T=+e.target.value;reparam();});
+ $('m-min').addEventListener('input',e=>{st.min=+e.target.value;reparam();});
+ $('m-n').addEventListener('change',e=>{st.n=+e.target.value;gen();draw();});
+ $('m-u').addEventListener('input',e=>{st.u=+e.target.value/1000;st.playing=false;sync();draw();});
+ $('m-play').addEventListener('click',()=>{if(st.u>=1)st.u=0;st.playing=!st.playing;st.last=performance.now();sync();if(st.playing)requestAnimationFrame(loop);});
+ $('m-reset').addEventListener('click',()=>{st.u=0;st.playing=false;$('m-u').value=0;sync();draw();});
+ gen();setup();sync();
+ new ResizeObserver(()=>{if(size())draw();}).observe(cv.parentElement);
+ return {show(){if(size())draw();},redraw:draw,start(){st.u=0;st.playing=true;st.last=performance.now();sync();requestAnimationFrame(loop);}};
+})();
+
+/* ---------- Calculators ---------- */
+const num=id=>{const v=parseFloat($(id).value);return v;};
+const rowsHTML=r=>r.map(x=>`<dt>${x[0]}</dt><dd class="${x[2]?'key':''}">${x[1]}</dd>`).join('');
+function fail(id,msg){const e=$(id+'-err');e.hidden=!msg;e.textContent=msg||'';if(msg)$(id+'-out').innerHTML='';return !msg;}
+const pos=(...v)=>v.every(x=>isFinite(x)&&x>0);
+function c1(){const p={sp:$('c1-sp').value,Cs:num('c1-Cs'),Nb:num('c1-Nb'),T1:num('c1-T1'),t1:num('c1-t1'),T2:num('c1-T2'),t2:num('c1-t2')};
+ if(!fail('c1',pos(p.Cs,p.Nb,p.T1,p.t1,p.T2,p.t2)?'':'Enter positive numbers in every field.'))return null;
+ const r=calcDiff(p);
+ $('c1-out').innerHTML=rowsHTML([['Diffusivity, predeposit',sci(r.D1)+' cm²/s'],['Predeposit length 2√(Dt)',dep(r.L1)],['Dose from predeposit Q',sci(r.Q)+' cm⁻²'],['Junction after predeposit',p.Nb<p.Cs?dep(r.xj1):'none (Nb ≥ Cs)'],['Diffusivity, drive-in',sci(r.D2)+' cm²/s'],['Total Dt (both steps)',sci(r.Dt)+' cm²'],['Surface conc. after drive-in N₀',sci(r.N0)+' cm⁻³'],['Junction after drive-in',r.N0>p.Nb?dep(r.xj2):'none (N₀ ≤ Nb)',true]]);
+ return {p,r};}
+function c2(){const p={uA:num('c2-uA'),eff:num('c2-eff'),n:+$('c2-n').value,dmm:+$('c2-d').value,dose:num('c2-dose'),t:num('c2-t')};
+ if(!fail('c2',pos(p.uA,p.eff,p.dose,p.t)&&p.eff<=100?'':'Enter positive numbers (beam on wafer must be 100 or less).'))return;
+ const r=calcBeam(p);
+ $('c2-out').innerHTML=rowsHTML([['Wafer area',r.A.toFixed(0)+' cm²'],['Time for target dose',tstr(r.time),true],['Wafers per hour (beam time only)',(3600/r.time).toFixed(1)],['Dose after the exposure time',sci(r.dose)+' cm⁻²']]);}
+function c3(){const p={sp:$('c3-sp').value,E:num('c3-E'),dose:num('c3-dose'),nb:num('c3-nb')};
+ if(!fail('c3',pos(p.E,p.dose,p.nb)&&p.E>=10&&p.E<=300?'':'Energy must be 10 to 300 keV and other values positive.'))return null;
+ const S={species:p.sp,imp:{E:p.E,doseExp:Math.log10(p.dose),tilt:true,anneal:false}};const pr=analyze(impProfile(S),p.nb);
+ $('c3-out').innerHTML=rowsHTML([['Projected range Rp',dep(pr.Rp)],['Straggle ΔRp',dep(pr.dr)],['Peak concentration Np',sci(pr.peak)+' cm⁻³',true],['Surface concentration',sci(pr.surf)+' cm⁻³'],['Junction depth(s)',pr.junctions.length?pr.junctions.map(dep).join(' and '):'none in range',true]]);
+ return {p,pr,S};}
+function c4(){const src=$('c4-src').value;let prof,Nb,sp;
+ if(src==='diff'){const a=c1();if(!a){fail('c4','Fix the inputs in calculator 1 first.');return;}prof=a.r.prof;Nb=a.p.Nb;sp=a.p.sp;}
+ else{const a=c3();if(!a){fail('c4','Fix the inputs in calculator 3 first.');return;}prof=impProfile(a.S);Nb=a.p.nb;sp=a.p.sp;}
+ fail('c4','');const s=sheetRes(prof,Nb,sp);
+ if(!isFinite(s.Rs)){$('c4-out').innerHTML=rowsHTML([['Result','No layer above the background, so no junction']]);return;}
+ const th=s.xj.length>1?s.xj[1]-s.xj[0]:s.xj[0];
+ $('c4-out').innerHTML=rowsHTML([['Sheet resistance Rs',s.Rs.toFixed(s.Rs<100?1:0)+' Ω/sq',true],['Layer thickness',dep(th)],['Average resistivity',(s.Rs*th*1e-4).toExponential(2)+' Ω·cm'],['Carrier type',sp==='B'?'holes (p-type)':'electrons (n-type)']]);}
+function c5(){const sp=$('c5-sp').value,T=num('c5-T'),L=num('c5-L');
+ if(!fail('c5',pos(T,L)&&T>=500&&T<=1400?'':'Temperature must be 500 to 1400 °C and length positive.'))return;
+ const s=SPEC[sp],D=Dcoef(s,T),D50=Dcoef(s,T+50),t=Math.pow(L*1e-4,2)/D;
+ $('c5-out').innerHTML=rowsHTML([['Diffusivity D',sci(D)+' cm²/s',true],['Time to reach √(Dt)',tstr(t),true],['D at +50 °C',sci(D50)+' cm²/s'],['Speed-up for +50 °C',(D50/D).toFixed(1)+'×']]);
+ drawC5(sp,T);}
+function drawC5(sp,Tuser){const cv=$('c5-cv'),w=cv.clientWidth;if(w<50)return;const h=220,dpr=window.devicePixelRatio||1;cv.width=w*dpr;cv.height=h*dpr;
+ const g=cv.getContext('2d'),Cc=tok();g.setTransform(dpr,0,0,h?dpr:1,0,0);g.clearRect(0,0,w,h);g.font=MONO;g.textBaseline='middle';
+ const L=44,R=10,Tp=10,B=34,pw=w-L-R,ph=h-Tp-B,xT=T=>L+(T-800)/400*pw,yD=l=>Tp+(1-(l+18)/7)*ph;
+ g.strokeStyle=Cc.line;g.strokeRect(L,Tp,pw,ph);g.fillStyle=Cc.muted;
+ for(let l=-18;l<=-11;l+=1){const y=yD(l);g.strokeStyle=Cc.grid;g.beginPath();g.moveTo(L,y);g.lineTo(L+pw,y);g.stroke();if((l+18)%2===0){g.textAlign='right';g.fillText('1e'+l,L-5,y);}}
+ for(let T=800;T<=1200;T+=100){const x=xT(T);g.strokeStyle=Cc.grid;g.beginPath();g.moveTo(x,Tp);g.lineTo(x,Tp+ph);g.stroke();g.textAlign='center';g.fillStyle=Cc.muted;g.fillText(T,x,Tp+ph+12);}
+ g.textAlign='center';g.fillText('Temperature (°C)   D in cm²/s, log scale',L+pw/2,h-8);
+ const colr={B:Cc.heat,P:Cc.beam,As:Cc.teal};
+ for(const k of ['B','P','As']){g.strokeStyle=colr[k];g.lineWidth=k===sp?3.5:1.8;g.globalAlpha=k===sp?1:0.7;g.beginPath();
+  for(let T=800;T<=1200;T+=10){const x=xT(T),y=yD(Math.log10(Dcoef(SPEC[k],T)));T===800?g.moveTo(x,y):g.lineTo(x,y);}g.stroke();g.globalAlpha=1;
+  const yEnd=yD(Math.log10(Dcoef(SPEC[k],1200)));g.fillStyle=colr[k];g.textAlign='left';g.fillText(k,L+pw-20,yEnd+(k==='P'?-9:k==='B'?4:12));}
+ if(Tuser>=800&&Tuser<=1200){const x=xT(Tuser),y=yD(Math.log10(Dcoef(SPEC[sp],Tuser)));g.fillStyle=Cc.ink;g.beginPath();g.arc(x,y,5,0,6.2832);g.fill();g.strokeStyle=Cc.surface;g.lineWidth=2;g.stroke();}}
+const all=()=>{c1();c2();c3();c4();c5();};
+$('calcs').addEventListener('input',all);$('calcs').addEventListener('change',all);all();
+new ResizeObserver(()=>{c5();}).observe($('c5-cv').parentElement);
+
+/* ---------- navigation ---------- */
+const views=['how','simulate','profiles','calculators','videos','theory'];
+function route(){let h=location.hash.replace('#','');if(!views.includes(h))h='how';
+ views.forEach(v=>{$('v-'+v).hidden=v!==h;});
+ document.querySelectorAll('.nav a').forEach(a=>{a.dataset.v===h?a.setAttribute('aria-current','page'):a.removeAttribute('aria-current');});
+ if(h==='simulate')sim.show();if(h==='profiles'&&window.__labShow)window.__labShow();if(h==='calculators')all();
+ window.scrollTo(0,0);}
+window.addEventListener('hashchange',route);
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{sim.redraw();c5();if(window.__labShow)window.__labShow();});
+new MutationObserver(()=>{sim.redraw();c5();if(window.__labShow)window.__labShow();}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+route();
+})();
+(function(){
+const $=id=>document.getElementById(id);
+const cv=$('p-cv'),ctx=cv.getContext('2d');
+const LW=900,LH=440,DUR=7.5;
+let mode='diff',step=0,auto=false,stepT=0,last=0,cssW=0,dpr=1,sc=1,hl=null,time=0,E=100;
+let parts=[],spawnAcc=0,temp=25,sat=0,count=0,inset=[],atoms=[],pause=0;
+const rnd=Math.random,gs=()=>{let u=1-rnd(),v=rnd();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);};
+const ease=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x);};
+for(let i=0;i<70;i++)atoms.push({u:Math.abs(gs()),rx:rnd()*2-1});
+const DS=[
+ {t:'Clean the wafers and add a mask',d:'Wafers are cleaned, then a thin silicon dioxide layer is grown and patterned with photolithography. The oxide blocks dopants, so only the open windows get doped.',hi:['wafer']},
+ {t:'Load the wafers into the furnace',d:'The wafers stand upright in a quartz boat. The boat is lowered slowly into a quartz tube so the wafers are not shocked by the heat.',hi:['boat','tube']},
+ {t:'Heat up with nitrogen flowing',d:'Heating coils bring the tube to 900 to 1100 °C. Nitrogen flows through to push out air. A thermocouple and temperature controller hold the heat steady, within about ±0.5 °C.',hi:['heater','ctrl','gas']},
+ {t:'Predeposition: dopant goes in',d:'Nitrogen carries dopant gas over the wafers. It comes from a bubbler (POCl₃ or BBr₃) or a gas such as PH₃. Dopant atoms enter the open windows and form a thin, heavily doped layer near the surface.',hi:['bubbler','mfc','boat']},
+ {t:'Drive-in: dopant spreads deeper',d:'The dopant source is switched off and the temperature goes up. Heat makes atoms move from high to low concentration, so the dopant goes deeper while the surface concentration falls. The total dose stays the same.',hi:['heater','wafer']},
+ {t:'Unload and measure',d:'The boat is pulled out slowly and the wafers cool. A four-point probe measures sheet resistance. SIMS can measure the depth profile.',hi:['boat','wafer']}];
+const IS=[
+ {t:'Make ions in the ion source',d:'A gas such as BF₃, PH₃ or AsH₃ enters the source. A hot filament or plasma knocks electrons off the gas molecules. This creates positive ions of boron, phosphorus or arsenic, plus unwanted ions.',hi:['source']},
+ {t:'Pull out and select the right ion',d:'An extraction voltage pulls the ions out of the source. The analyzer magnet bends each ion by an amount that depends on its mass, so only the wanted ion goes through the slit. The others hit the walls. (Real magnets bend the beam about 90°. Here it is drawn straight.)',hi:['extract','magnet','slit']},
+ {t:'Accelerate to set the depth',d:'A high-voltage column speeds the ions up. More energy means the ions travel deeper: about 1 keV for shallow junctions up to MeV for deep wells. Move the energy slider and watch the depth in the wafer cross-section.',hi:['accel']},
+ {t:'Focus and scan the beam',d:'Lenses focus the beam into a narrow spot. Scan plates sweep it up and down while the wafer moves sideways, so every part of the wafer gets the same dose.',hi:['lens','scan']},
+ {t:'Implant into the wafer',d:'Ions hit the wafer in a high vacuum, collide with silicon atoms and stop. Most stop below the surface, near the projected range Rp. A Faraday cup counts the charge, so the tool knows the dose. The wafer is tilted about 7° to reduce channeling, and photoresist blocks ions where doping is not wanted.',hi:['wafer','faraday','vac']},
+ {t:'Anneal to repair and activate',d:'Implanting damages the crystal (the crosses). A rapid thermal anneal at about 1000 °C for a few seconds repairs the lattice and moves dopants onto silicon sites, where they become electrically active (green).',hi:['inset']}];
+const DE=[['gas','Gas cabinet (N₂, O₂)','Stores the carrier and oxidizing gases and sends them to the furnace.'],['bubbler','Dopant source','Liquid sources such as POCl₃ and BBr₃ are bubbled with carrier gas. Gas sources such as PH₃ come from cylinders.'],['mfc','Mass flow controller','Meters the gas flow precisely, in standard cm³ per minute.'],['tube','Quartz tube','Holds the wafers in a clean, high-temperature space.'],['heater','Heating coils (3 zones)','Resistive heaters make a flat, even temperature zone along the tube.'],['boat','Quartz boat','Holds many wafers upright so gas reaches every wafer.'],['ctrl','Temperature controller','Reads thermocouples and adjusts power to keep the temperature steady.'],['exhaust','Exhaust scrubber','Removes toxic leftover gases before they are released.']];
+const IE=[['source','Ion source','Ionizes the source gas with a filament or plasma to make ions.'],['extract','Extraction electrodes','A voltage pulls ions out of the source and forms the beam.'],['magnet','Analyzer magnet','Bends ions by mass, so only the wanted ion passes.'],['slit','Resolving slit','A narrow gap that blocks ions of the wrong mass.'],['accel','Accelerator column','High voltage sets the ion energy, and so the depth.'],['lens','Focusing lens','Quadrupole lenses squeeze the beam into a tight spot.'],['scan','Scan plates','Sweep the beam across the wafer for a uniform dose.'],['wafer','Wafer and end station','Holds the wafer tilted about 7° and moves it through the beam.'],['faraday','Faraday cup','Collects the beam charge to measure the dose.'],['vac','Vacuum pumps','Keep the beamline near 10⁻⁶ Torr so ions do not hit air molecules.']];
+const S=()=>mode==='diff'?DS:IS,EQ=()=>mode==='diff'?DE:IE;
+function tk(){const c=getComputedStyle(document.documentElement),g=n=>c.getPropertyValue(n).trim();return {o:g('--heat'),b:g('--beam'),t:g('--teal'),ink:g('--ink'),mu:g('--muted'),line:g('--line'),sf:g('--surface'),si:g('--si'),bg:g('--bg')};}
+let C=tk();
+/* ---------- UI ---------- */
+function ui(){const st=S()[step];
+ $('p-steps').innerHTML=S().map((s,i)=>`<button type="button" class="pstep" data-i="${i}" aria-current="${i===step}"><span class="pn">${i+1}</span><span>${s.t}</span></button>`).join('');
+ $('p-info').innerHTML=`<h3>${step+1}. ${st.t}</h3><p>${st.d}</p>`;
+ const on=new Set(st.hi);
+ $('p-equip').innerHTML=EQ().map(e=>`<button type="button" class="eq-item${on.has(e[0])?' on':''}" data-k="${e[0]}"><b>${e[1]}</b><span>${e[2]}</span></button>`).join('');
+ $('p-energy').hidden=mode!=='imp';
+ $('p-play').textContent=auto?'Pause':'Play all';
+ document.querySelectorAll('#p-mode button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===mode));
+}
+function go(i){step=Math.max(0,Math.min(S().length-1,i));stepT=0;pause=0;ui();}
+function reset(){parts=[];sat=0;count=0;inset=[];temp=25;spawnAcc=0;stepT=0;step=0;}
+$('p-mode').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;mode=b.dataset.v;reset();ui();});
+$('p-steps').addEventListener('click',e=>{const b=e.target.closest('.pstep');if(!b)return;auto=false;go(+b.dataset.i);});
+$('p-prev').addEventListener('click',()=>{auto=false;go(step-1);});
+$('p-next').addEventListener('click',()=>{auto=false;go(step+1);});
+$('p-play').addEventListener('click',()=>{auto=!auto;if(auto&&step>=S().length-1){reset();}ui();});
+$('p-E').addEventListener('input',e=>{E=+e.target.value;$('p-E_o').textContent=E+' keV';});
+const eq=$('p-equip');
+eq.addEventListener('mouseover',e=>{const b=e.target.closest('.eq-item');hl=b?b.dataset.k:null;});
+eq.addEventListener('mouseleave',()=>{hl=null;});
+eq.addEventListener('focusin',e=>{const b=e.target.closest('.eq-item');hl=b?b.dataset.k:null;});
+eq.addEventListener('focusout',()=>{hl=null;});
+eq.addEventListener('click',e=>{const b=e.target.closest('.eq-item');if(b)hl=b.dataset.k;});
+/* ---------- drawing helpers ---------- */
+function rr(x,y,w,h,r){ctx.beginPath();ctx.roundRect?ctx.roundRect(x,y,w,h,r):ctx.rect(x,y,w,h);}
+function isHi(k){return k===hl||S()[step].hi.includes(k);}
+function box(k,x,y,w,h,label,fill,r=6,ly){const hi=isHi(k);ctx.save();
+ if(hi){ctx.shadowColor=C.o;ctx.shadowBlur=14;}
+ ctx.fillStyle=fill;rr(x,y,w,h,r);ctx.fill();ctx.lineWidth=hi?3:1.2;ctx.strokeStyle=hi?C.o:C.line;ctx.stroke();ctx.restore();
+ if(label){ctx.font=(hi?'700 ':'500 ')+'12.5px "IBM Plex Sans",system-ui,sans-serif';ctx.textAlign='center';ctx.textBaseline='alphabetic';ctx.fillStyle=hi?C.o:C.mu;
+  String(label).split('\n').forEach((l,i)=>ctx.fillText(l,x+w/2,(ly??y+h+16)+i*15));}}
+function txt(s,x,y,col,size=12.5,al='center',w='500'){ctx.font=w+' '+size+'px "IBM Plex Sans",system-ui,sans-serif';ctx.textAlign=al;ctx.textBaseline='alphabetic';ctx.fillStyle=col;ctx.fillText(s,x,y);}
+function dot(x,y,r,col){ctx.fillStyle=col;ctx.beginPath();ctx.arc(x,y,r,0,6.2832);ctx.fill();}
+function pipe(pts,col){ctx.strokeStyle=col;ctx.lineWidth=5;ctx.lineJoin='round';ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();}
+/* ---------- diffusion scene ---------- */
+const BX=370,WX=i=>BX+i*28;
+function diffUpdate(dt){
+ const tgt=[25,25,1000,1000,1100,25][step];temp+=(tgt-temp)*Math.min(1,dt*(tgt>temp?1.3:0.6));
+ const flow=step>=2&&step<=4,dop=step===3;
+ if(flow){spawnAcc+=dt*14;while(spawnAcc>1){spawnAcc--;
+   const isD=dop&&rnd()<0.5;
+   parts.push(isD?{x:110,y:300,vy:-110,vx:0,D:1,yo:(rnd()-.5)*70,st:'up'}:{x:50,y:140,vy:110,vx:0,D:0,yo:(rnd()-.5)*70,st:'down'});}}
+ for(const p of parts){
+  if(p.st==='up'){p.y+=p.vy*dt;if(p.y<=210){p.y=210;p.st='right';p.vx=70+rnd()*20;}}
+  else if(p.st==='down'){p.y+=p.vy*dt;if(p.y>=210){p.y=210;p.st='right';p.vx=70+rnd()*20;}}
+  else{const px=p.x;p.x+=p.vx*dt;if(p.x>220&&p.x<690){p.y+=((210+p.yo)-p.y)*Math.min(1,dt*3);}else if(p.x>=690){p.y+=(210-p.y)*Math.min(1,dt*5);}
+   if(p.D&&!p.dead&&step===3)for(let i=0;i<7;i++){const wx=WX(i);if(px<wx&&p.x>=wx&&Math.abs(p.y-210)<42&&rnd()<0.22){p.dead=1;sat+=1;}}}
+ }
+ parts=parts.filter(p=>!p.dead&&p.x<790);
+}
+function diffDraw(){
+ const heat=Math.max(0,Math.min(1,(temp-25)/1100));
+ ctx.fillStyle=C.sf;
+ // pipes
+ pipe([[50,140],[50,210],[220,210]],'#3a3a3a');pipe([[110,300],[110,210]],'#3a3a3a');pipe([[690,210],[780,210]],'#3a3a3a');
+ box('gas',20,40,120,100,'Gas cabinet\n(N₂, O₂)','#101010',8,158);
+ ctx.fillStyle='#2a2a2a';rr(36,52,32,76,8);ctx.fill();rr(92,52,32,76,8);ctx.fill();txt('N₂',52,96,C.ink,12);txt('O₂',108,96,C.ink,12);
+ box('bubbler',20,300,130,100,'Dopant source\n(POCl₃ / BBr₃ / PH₃)','#101010',8,418);
+ const lv=Math.sin(time*3)*1.5;ctx.fillStyle=step===3?'rgba(238,127,45,.35)':'rgba(238,127,45,.15)';ctx.fillRect(32,345+lv,106,45);
+ if(step===3)for(let i=0;i<5;i++){dot(45+i*21,385-((time*40+i*17)%38),2.5,C.o);}
+ box('mfc',150,196,44,28,'MFC','#161616',5,190);
+ // tube
+ const glow=heat*0.45;
+ box('tube',220,150,470,120,'Quartz tube','#0b0b0b',30,288);
+ if(glow>0){ctx.fillStyle=`rgba(238,127,45,${glow})`;rr(222,152,466,116,28);ctx.fill();}
+ // coils
+ const hh=isHi('heater');ctx.strokeStyle=hh?C.o:`rgba(238,127,45,${0.35+0.65*heat})`;ctx.lineWidth=hh?3:2;
+ for(let z=0;z<3;z++){for(let k=0;k<9;k++){const x=245+z*150+k*14;ctx.beginPath();ctx.moveTo(x,142);ctx.lineTo(x,158);ctx.moveTo(x,262);ctx.lineTo(x,278);ctx.stroke();}}
+ if(step>1)txt('Heating coils (3 zones)',455,128,hh?C.o:C.mu,12.5,'center',hh?'700':'500');
+ // boat + wafers
+ const bp=step===0?0:step===1?ease(stepT/4):step<5?1:1-ease(stepT/3);const by=-135*(1-bp);
+ ctx.save();ctx.translate(0,by);
+ const bh=isHi('boat');
+ ctx.fillStyle=bh?C.o:'#555';ctx.fillRect(BX-14,252,7*28+10,6);
+ for(let i=0;i<7;i++){const x=WX(i);ctx.fillStyle=C.si;ctx.fillRect(x-4,170,8,84);const a=Math.min(.85,sat/70);if(a>0){ctx.fillStyle=`rgba(238,127,45,${a})`;ctx.fillRect(x-4,170,8,84);}}
+ if(bh){ctx.strokeStyle=C.o;ctx.lineWidth=2.5;ctx.strokeRect(BX-16,166,7*28+14,94);}
+ if(by<-5)txt('Quartz boat with wafers',BX-24,by+215,bh?C.o:C.mu,12,'right',bh?'700':'500');
+ ctx.restore();
+ if(step===0)txt('Clean, oxidized, patterned wafers',BX+90,by+158,C.ink,12);
+ // particles
+ for(const p of parts)dot(p.x,p.y,p.D?3:2.4,p.D?C.o:'#8c97a8');
+ // exhaust
+ box('exhaust',780,160,100,100,'Exhaust\nscrubber','#101010',8,278);
+ txt('to vent',830,212,C.mu,11);
+ // controller
+ box('ctrl',250,318,230,74,'Temperature controller','#101010',8,410);
+ txt(Math.round(temp)+' °C',365,364,heat>0.05?C.o:C.ink,26,'center','700');
+ txt('Gas: '+(step===3?'N₂ + dopant':(step>=2&&step<=4?'N₂ only':'off')),365,382,C.mu,11.5);
+ // inset
+ insetDiff();
+}
+function insetDiff(){
+ const x=585,y=300,w=295,h=118,sy=y+30,cx=x+w/2,wh=44;
+ const hi=isHi('wafer');
+ ctx.fillStyle='#0b0b0b';rr(x,y-6,w,h+22,8);ctx.fill();ctx.lineWidth=hi?3:1.2;ctx.strokeStyle=hi?C.o:C.line;ctx.stroke();
+ ctx.fillStyle=C.si;ctx.fillRect(x+8,sy,w-16,y+h-sy);
+ ctx.fillStyle='#d6dbe3';ctx.fillRect(x+8,sy-9,cx-wh-(x+8),9);ctx.fillRect(cx+wh,sy-9,x+w-8-(cx+wh),9);
+ txt('Wafer cross-section',x+w/2,y+6,hi?C.o:C.ink,12.5,'center','700');
+ txt('oxide mask',x+54,sy-14,C.mu,11);txt('open window',cx,sy-14,C.mu,11);
+ const p=Math.min(1,stepT/DUR);let n=0,scale=10;
+ if(step===3){n=Math.floor(70*ease(p));scale=10;}else if(step===4){n=70;scale=10+24*ease(p);}else if(step===5){n=70;scale=34;}
+ for(let i=0;i<n;i++){const a=atoms[i],lat=step>=4?0.55*Math.max(0,scale-10)*a.u:0,ax=cx+a.rx*(wh-4+lat),ay=sy+5+a.u*scale;
+  if(ax>x+10&&ax<x+w-10&&ay<y+h-4)dot(ax,ay,2.6,C.o);}
+ const cap=step<3?'Dopant can only enter through the window':step===3?'Thin layer, high concentration':step===4?'Deeper, lower surface concentration':'Final profile: depth xⱼ grows with √(D·t)';
+ txt(cap,x+w/2,y+h+10,C.mu,11.5);
+}
+/* ---------- implanter scene ---------- */
+function impUpdate(dt){
+ const on=step<=4;
+ if(on){spawnAcc+=dt*(step===0?6:9);while(spawnAcc>1){spawnAcc--;const r=rnd();parts.push({x:70+rnd()*30,y:190+rnd()*20,vx:35,vy:0,k:r<.62?'g':r<.82?'l':'h',sc:0});}}
+ const v1=150,v2=v1+E*1.6;
+ for(const p of parts){
+  const x=p.x;
+  if(x<125)p.vx=45;else if(x<140)p.vx=v1;
+  if(x>=190&&x<300&&p.k!=='g'){p.vy+=(p.k==='l'?1:-1)*320*dt;}
+  if(x>=190&&x<300&&p.k!=='g'&&(p.y<172||p.y>228)){p.dead=1;p.spark=1;}
+  if(x>=370&&x<520){p.vx=v1+(v2-v1)*(x-370)/150;}else if(x>=520)p.vx=v2;
+  if(x>=540&&x<580)p.y=200+(p.y-200)*(1-dt*2);
+  if(!p.sc&&x>=600){p.sc=1;p.vy=60*Math.sin(time*3.2)*p.vx/160;}
+  p.x+=p.vx*dt;p.y+=p.vy*dt;
+  if(p.k==='g'&&p.x>=752&&!p.dead){p.dead=1;if(Math.abs(p.y-200)<92){count++;const Rp=10+0.3*E;inset.push({x:rnd(),z:Math.max(3,Rp+gs()*Rp*0.3),fix:0});if(inset.length>150)inset.shift();}}
+  else if(p.x>880)p.dead=1;
+ }
+ parts=parts.filter(p=>!p.dead);
+ if(step===5){for(const a of inset)a.fix=Math.min(1,a.fix+dt*0.45);}
+}
+function impDraw(){
+ const hi=k=>isHi(k);
+ // faint beam guide
+ ctx.fillStyle='rgba(155,140,255,0.06)';ctx.fillRect(140,196,610,8);
+ // source
+ box('source',20,150,100,100,'Ion source','#101010',8,268);
+ ctx.fillStyle='rgba(238,127,45,.22)';ctx.beginPath();ctx.arc(70,200,32+Math.sin(time*6)*2,0,6.2832);ctx.fill();
+ for(let i=0;i<6;i++)dot(70+Math.cos(time*3+i*1.7)*22,200+Math.sin(time*4+i*2.3)*22,2,C.o);
+ pipe([[70,150],[70,70]],'#3a3a3a');txt('Source gas',70,52,hi('source')?C.o:C.mu,12,'center');txt('BF₃, PH₃, AsH₃',70,66,C.mu,11);
+ // extraction
+ box('extract',126,160,10,80,'Extraction','#161616',3,150);
+ // magnet
+ box('magnet',190,120,110,50,'','#13203a',6);box('magnet',190,230,110,50,'','#13203a',6);
+ txt('Analyzer magnet',245,298,hi('magnet')?C.o:C.mu,12.5,'center',hi('magnet')?'700':'500');
+ txt('N',245,150,C.ink,13,'center','700');txt('S',245,266,C.ink,13,'center','700');
+ // slit
+ box('slit',330,160,10,32,'','#161616',2);box('slit',330,208,10,32,'','#161616',2);txt('Slit',335,262,hi('slit')?C.o:C.mu,12.5,'center',hi('slit')?'700':'500');
+ // accel
+ box('accel',370,165,150,70,'','#101010',6);
+ for(let i=0;i<7;i++){ctx.fillStyle=hi('accel')?C.o:'#555';ctx.fillRect(380+i*20,168,7,64);}
+ txt('Accelerator column',445,254,hi('accel')?C.o:C.mu,12.5,'center',hi('accel')?'700':'500');txt(E+' keV',445,152,C.o,13,'center','700');
+ // lens
+ box('lens',540,150,40,100,'Lens','#161616',6,268);
+ // scan plates
+ const off=60*Math.sin(time*3.2);
+ box('scan',600,148,70,10,'','#161616',2);box('scan',600,242,70,10,'','#161616',2);txt('Scan plates',635,268,hi('scan')?C.o:C.mu,12.5,'center',hi('scan')?'700':'500');
+ if(step===3){ctx.fillStyle='rgba(238,127,45,.5)';ctx.fillRect(604,158,62,Math.max(0,20+off*0.2));}
+ // wafer (tilted)
+ ctx.save();ctx.translate(762,200);ctx.rotate(7*Math.PI/180);
+ if(hi('wafer')){ctx.shadowColor=C.o;ctx.shadowBlur=14;}
+ ctx.fillStyle=C.si;ctx.fillRect(-5,-95,10,190);ctx.lineWidth=hi('wafer')?3:1;ctx.strokeStyle=hi('wafer')?C.o:C.line;ctx.strokeRect(-5,-95,10,190);ctx.restore();
+ txt('Wafer (7° tilt)',762,98,hi('wafer')?C.o:C.mu,12.5,'center',hi('wafer')?'700':'500');
+ // faraday
+ box('faraday',800,150,60,100,'Faraday cup','#101010',6,268);
+ txt('Dose',830,190,C.mu,11);txt((count*0.4).toFixed(1),830,214,C.o,18,'center','700');txt('×10¹² cm⁻²',830,230,C.mu,10.5);
+ // vacuum
+ box('vac',330,330,120,48,'Vacuum pumps','#101010',6,396);
+ pipe([[390,330],[390,300]],'#3a3a3a');ctx.save();ctx.translate(390,354);ctx.rotate(time*(isHi('vac')?9:4));ctx.fillStyle=isHi('vac')?C.o:'#777';for(let k=0;k<4;k++){ctx.rotate(Math.PI/2);ctx.beginPath();ctx.ellipse(0,-9,4,9,0,0,6.2832);ctx.fill();}ctx.restore();
+ if(hi('vac')){ctx.strokeStyle=C.o;ctx.setLineDash([5,5]);ctx.lineWidth=2;ctx.strokeRect(138,122,700,176);ctx.setLineDash([]);txt('High vacuum (~10⁻⁶ Torr)',480,318,C.o,12,'center','700');}
+ // particles
+ for(const p of parts)dot(p.x,p.y,p.k==='g'?3.2:2.6,p.k==='g'?C.b:p.k==='l'?'#8c97a8':'#d0a870');
+ // legend
+ dot(70,425,3.2,C.b);txt('wanted ion',84,429,C.mu,11.5,'left');dot(168,425,2.6,'#8c97a8');dot(180,425,2.6,'#d0a870');txt('other ions (blocked)',190,429,C.mu,11.5,'left');
+ insetImp();
+}
+function insetImp(){
+ const x=585,y=300,w=295,h=118,sy=y+30,cx=x+w/2,wh=44,hi=isHi('wafer')||isHi('inset');
+ ctx.fillStyle='#0b0b0b';rr(x,y-6,w,h+22,8);ctx.fill();ctx.lineWidth=hi?3:1.2;ctx.strokeStyle=hi?C.o:C.line;ctx.stroke();
+ ctx.fillStyle=C.si;ctx.fillRect(x+8,sy,w-16,y+h-sy);
+ ctx.fillStyle='#8a5a2a';ctx.fillRect(x+8,sy-9,cx-wh-(x+8),9);ctx.fillRect(cx+wh,sy-9,x+w-8-(cx+wh),9);
+ txt('Wafer cross-section',x+w/2,y+6,hi?C.o:C.ink,12.5,'center','700');
+ txt('resist',x+54,sy-14,C.mu,11);txt('ions enter here',cx,sy-14,C.mu,11);
+ const Rp=10+0.3*E;ctx.strokeStyle='rgba(255,255,255,.35)';ctx.setLineDash([4,4]);ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x+12,sy+Rp);ctx.lineTo(x+w-12,sy+Rp);ctx.stroke();ctx.setLineDash([]);
+ txt('Rp ≈ '+(Rp*0.0045*(1)).toFixed(2)+' µm',x+w-14,sy+Rp-3,C.mu,10.5,'right');
+ for(const a of inset){const ax=cx-wh+6+a.x*(2*wh-12),ay=sy+a.z;if(ay>y+h-4)continue;
+  if(a.fix<1){ctx.strokeStyle=`rgba(255,120,120,${1-a.fix})`;ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(ax-5,ay-9);ctx.lineTo(ax-1,ay-5);ctx.moveTo(ax-1,ay-9);ctx.lineTo(ax-5,ay-5);ctx.stroke();}
+  dot(ax,ay,2.8,a.fix>0.5?'#5fe0a0':C.b);}
+ txt(step<5?'Ions stop below the surface (x = damage)':'Anneal: damage repaired, dopants active',x+w/2,y+h+10,C.mu,11.5);
+ if(step===5){txt('RTA ~1000 °C, a few seconds',cx,sy+72,C.o,11.5,'center','700');}
+}
+/* ---------- loop ---------- */
+function size(){const wrap=cv.parentElement,aw=wrap.clientWidth-20;if(aw<50)return false;cssW=Math.max(aw,700);dpr=window.devicePixelRatio||1;cv.width=cssW*dpr;cv.height=cssW*LH/LW*dpr;cv.style.width=cssW+'px';cv.style.height=(cssW*LH/LW)+'px';sc=cssW/LW;return true;}
+let lastW=0;
+function frame(now){requestAnimationFrame(frame);
+ if($('v-how').hidden||document.hidden){last=now;return;}
+ const w=cv.parentElement.clientWidth;if(w!==lastW||!cssW){lastW=w;if(!size())return;C=tk();}
+ let dt=Math.min(0.05,(now-last)/1000);last=now;time+=dt;stepT+=dt;
+ if(auto){if(stepT>DUR){if(step<S().length-1){go(step+1);}else{pause+=dt;if(pause>2.5){auto=false;ui();}}}}
+ mode==='diff'?diffUpdate(dt):impUpdate(dt);
+ ctx.setTransform(dpr*sc,0,0,dpr*sc,0,0);ctx.clearRect(0,0,LW,LH);
+ mode==='diff'?diffDraw():impDraw();
+ $('p-bar').style.width=Math.min(100,stepT/DUR*100)+'%';
+}
+new MutationObserver(()=>{C=tk();}).observe(document.documentElement,{attributes:true});
+ui();requestAnimationFrame(t=>{last=t;frame(t);});
+})();
+
+
+</script>
+</body></html>
